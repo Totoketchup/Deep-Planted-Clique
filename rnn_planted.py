@@ -2,33 +2,39 @@ import tensorflow as tf
 import matplotlib.pyplot as plt
 import numpy as np
 from tensorflow.python.framework import ops
-from data import get_data
+from data import get_data, get_numpy_data
 
-def blstm(input_tensor, hid, i):
+def blstm(input_tensor, hid, i, kp):
     forward_input = input_tensor
     backward_input = tf.reverse(input_tensor, [1])
 
     with tf.variable_scope('forward_'+str(i)):
         # Forward pass
         forward_lstm = tf.contrib.rnn.BasicLSTMCell(hid//2)
-        forward_lstm = tf.contrib.rnn.DropoutWrapper(forward_lstm, keep_prob, keep_prob, keep_prob)
+        forward_lstm = tf.contrib.rnn.DropoutWrapper(forward_lstm, kp, kp, kp)
         forward_out, _ = tf.nn.dynamic_rnn(forward_lstm, forward_input, dtype=tf.float32)
 
     with tf.variable_scope('backward_'+str(i)):
         # backward pass
         backward_lstm = tf.contrib.rnn.BasicLSTMCell(hid//2)
-        backward_lstm = tf.contrib.rnn.DropoutWrapper(backward_lstm, keep_prob, keep_prob, keep_prob)
+        backward_lstm = tf.contrib.rnn.DropoutWrapper(backward_lstm, kp, kp, kp)
         backward_out, _ = tf.nn.dynamic_rnn(backward_lstm, backward_input, dtype=tf.float32)
 
     # Concatenate the RNN outputs and return
     return tf.concat([forward_out[:,:,:], backward_out[:,::-1,:]], 2)
 
-x_vals, y_vals = get_data('degree_V2500_k50_train_label100000_2.txt', 'topk_degree_V2500_k50_train_feature100000.txt')
-dim = 50
-# x_vals = (x_vals - np.amin(x_vals,0, keepdims=True))/ np.array((np.amax(x_vals,0,keepdims=True) - np.amin(x_vals,0,keepdims=True)), 'float32')
+# x_vals, y_vals = get_data('degree_V2500_k50_train_label100000_2.txt', 'topk_degree_V2500_k50_train_feature100000.txt')
+# dim = 50
+# feature_dim = 1
+# seq_size = dim
+
+x_vals, y_vals = get_numpy_data('clique-N1000-K31-E50-labels.npy','clique-N1000-K31-E50-features.npy')
+
+x_vals = x_vals[:, :, :10]
+N, seq_size, feature_dim = x_vals.shape
+
 x_vals = (x_vals - np.mean(x_vals,0)) / np.std(x_vals,0)
-
-
+# # x_vals = (x_vals - np.amin(x_vals,0, keepdims=True))/ np.array((np.amax(x_vals,0,keepdims=True) - np.amin(x_vals,0,keepdims=True)), 'float32')
 
 # make results reproducible
 seed = 3
@@ -49,11 +55,10 @@ y_vals_train = y_vals[0:train_length]
 x_vals_test = x_vals[train_length:]
 y_vals_test = y_vals[train_length:]
 
-hidden = 10
-layers = 2
+hidden = 20
+layers = 4
 classes = 2
-feature_dim = 1
-seq_size = dim
+
 
 ops.reset_default_graph()
 sess = tf.Session()
@@ -65,17 +70,18 @@ keep_prob = tf.placeholder(tf.float32)
 alpha = tf.placeholder(tf.float32)
 
 
-# cells = []
-# for _ in range(layers):
-#     cell = tf.contrib.rnn.BasicLSTMCell(hidden) # Or LSTMCell(num_units)
-#     cell = tf.contrib.rnn.DropoutWrapper(cell, output_keep_prob=keep_prob)
-#     cells.append(cell)
-# network = tf.contrib.rnn.MultiRNNCell(cells)
-# output, _ = tf.nn.dynamic_rnn(network, x_data, dtype=tf.float32)
+cells = []
+for _ in range(layers):
+    cell = tf.contrib.rnn.BasicLSTMCell(hidden) # Or LSTMCell(num_units)
+    cell = tf.contrib.rnn.DropoutWrapper(cell, output_keep_prob=keep_prob)
+    cells.append(cell)
+network = tf.contrib.rnn.MultiRNNCell(cells)
+output, _ = tf.nn.dynamic_rnn(network, x_data, dtype=tf.float32)
 
 
-l = blstm(x_data, 20,1)
-output = blstm(l, 20,2)
+# l = blstm(x_data, 50, 1, keep_prob)
+# l = blstm(l, 50, 2, keep_prob)
+# output = blstm(l, 50, 3, keep_prob)
 
 # Select last output.
 last = output[:, -1, :]
@@ -102,13 +108,13 @@ temp_vecacc = []
 
 batch_size = 1024
 size_epoch = len(x_vals_train)//batch_size
-epochs = 600
+epochs = 100
 ACC_PERIOD = 10
 
 for e in range(epochs):
     for i in range(size_epoch):
         step = e*size_epoch + i
-        x_batch = x_vals_train[i*batch_size:(i+1)*batch_size][:, :, np.newaxis]
+        x_batch = x_vals_train[i*batch_size:(i+1)*batch_size]
         y_batch = y_vals_train[i*batch_size:(i+1)*batch_size]
 
         learning_rate = 0.001
@@ -116,7 +122,7 @@ for e in range(epochs):
         #     learning_rate = 0.01 
 
         _ , temp_loss, u = sess.run([train_step, loss, accuracy], 
-            feed_dict={alpha: learning_rate, x_data: x_batch, y_target: y_batch, keep_prob: 0.7})
+            feed_dict={alpha: learning_rate, x_data: x_batch, y_target: y_batch, keep_prob: 0.6})
         loss_vec.append(temp_loss)
         temp_vecloss.append(temp_loss)
         temp_vecacc.append(u)
@@ -125,13 +131,13 @@ for e in range(epochs):
         if (step) % ACC_PERIOD == 0:
             
             acc = sess.run(accuracy, 
-                feed_dict={x_data: x_vals_test[:1000, :, np.newaxis], 
-                y_target: y_vals_test[:1000, :], 
+                feed_dict={x_data: x_vals_test, 
+                y_target: y_vals_test, 
                 keep_prob: 1.0})
             acc_vec.append(acc)
             avg = sum(temp_vecloss) / float(len(temp_vecloss))
             avg_acc = sum(temp_vecacc) / float(len(temp_vecacc))
-            print('Step: ' + str(step+1) + '. Loss = ' + str(avg) + ' accuracy = ' + str(acc)+ ' train_acc = '+ str(u))
+            print('Epoch: ' + str(e)+ ' Step: ' + str(step+1) + '. Loss = ' + str(avg) + ' accuracy = ' + str(acc)+ ' train_acc = '+ str(u))
             temp_vecloss = []
 
 # Plot loss (MSE) over time

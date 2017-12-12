@@ -1,5 +1,5 @@
 import numpy as np
-
+from sklearn.preprocessing import LabelBinarizer
 def get_data(label_fn, features_fn, dim=50, nb=100000):
 	f = open(label_fn)
 	lines2 = f.readlines()
@@ -24,3 +24,25 @@ def get_data(label_fn, features_fn, dim=50, nb=100000):
 	    x_vals[i] = np.array(features)
 
 	return x_vals, y_vals
+
+import pandas as pd
+
+def get_numpy_data(labels_fn, features_fn, one_hot=True):
+	labels = np.load(labels_fn)
+	features = np.load(features_fn)
+
+	if one_hot:
+		s = pd.Series(labels)
+		y = np.array(pd.get_dummies(s), 'float32')
+	else:
+		y = labels
+
+	return features, y,
+
+	
+
+
+
+#TEST
+if __name__ == "__main__":
+   get_numpy_data('clique-N100-K10-E50-labels.npy','clique-N100-K10-E50-features.npy') 
