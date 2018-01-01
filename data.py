@@ -1,5 +1,7 @@
 import numpy as np
 from sklearn.preprocessing import LabelBinarizer
+import h5py
+
 def get_data(label_fn, features_fn, dim=50, nb=100000):
 	f = open(label_fn)
 	lines2 = f.readlines()
@@ -37,12 +39,25 @@ def get_numpy_data(labels_fn, features_fn, one_hot=True):
 	else:
 		y = labels
 
-	return features, y,
+	return features, y
 
-	
+def get_h5_data(N, K, E, M, P, ex, L=None, one_hot=True):
+	if L is None:
+		name = "clique-N{}-K{}-E{}-M{}-P{}-ex{}".format(N, K, E, M, P, ex)
+	else:
+		name = "clique-N{}-K{}-E{}-M{}-P{}-ex{}-Lapl{}".format(N, K, E, M, P, ex, L)
 
+	h5 = h5py.File('data/'+name+'.h5')
 
+	features = h5['features']
+	labels = h5['labels']
+	if one_hot:
+		s = pd.Series(labels)
+		y = np.array(pd.get_dummies(s), 'float32')
+	else:
+		y = labels
+	return features, y
 
 #TEST
 if __name__ == "__main__":
-   get_numpy_data('clique-N100-K10-E50-labels.npy','clique-N100-K10-E50-features.npy') 
+   print get_h5_data(100,10,10,2,2) 

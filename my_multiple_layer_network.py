@@ -2,15 +2,23 @@ import tensorflow as tf
 import matplotlib.pyplot as plt
 import numpy as np
 from tensorflow.python.framework import ops
-from data import get_data
+from data import get_h5_data
 
-x_vals, y_vals = get_data('degree_V2500_k50_train_label100000_2.txt', 'topk_degree_V2500_k50_train_feature100000.txt')
-dim = 50
-#Normalize
+# x_vals, y_vals = get_numpy_data('clique-N1000-K31-E50-labels.npy','clique-N1000-K31-E50-features.npy')
+x_vals, y_vals = get_h5_data(100,10,10,1,1,True,L='Merge')
+shape = x_vals.shape
+
+x_vals = np.reshape(x_vals, (shape[0], -1, shape[-1]))
+
+print x_vals.shape
+
+x_vals = np.transpose(x_vals, (0, 2, 1))
+print x_vals.shape
+
+x_vals = x_vals[: , -1, :]
+x_vals = np.reshape(x_vals, (shape[0], -1))
 x_vals = (x_vals - np.mean(x_vals,0)) / np.std(x_vals,0)
-
-
-
+_ , dim  = x_vals.shape
 # make results reproducible
 seed = 3
 np.random.seed(seed)
@@ -47,9 +55,9 @@ droprate = 0.0
 # regularizer = tf.contrib.layers.l2_regularizer(scale=0.0)
 
 z = tf.layers.dense(x_data, 50, activation = tf.nn.relu)
-z = tf.layers.dropout(z, rate= 0.2, training=training)
+z = tf.layers.dropout(z, rate= 0.8, training=training)
 z = tf.layers.dense(z, 20, activation = tf.nn.relu)
-z = tf.layers.dropout(z, rate= 0.2, training=training)
+z = tf.layers.dropout(z, rate= 0.8, training=training)
 # z = tf.layers.dense(z, 100, activation = tf.nn.relu)
 # z = tf.layers.dropout(z, rate= 0.2, training=training)
 final_output = tf.layers.dense(z, 2)
@@ -74,7 +82,7 @@ loss_vec = []
 acc_vec = []
 print(y_vals)
 
-batch_size = 2048
+batch_size = 16
 
 size_epoch = len(x_vals_train)//batch_size
 epochs = 600
@@ -86,7 +94,7 @@ for e in range(epochs):
         x_batch = x_vals_train[i*batch_size:(i+1)*batch_size]
         y_batch = y_vals_train[i*batch_size:(i+1)*batch_size]
 
-        learning_rate = 0.01
+        learning_rate = 0.001
 
         _ , temp_loss, u = sess.run([train_step, loss, accuracy], feed_dict={alpha: learning_rate, x_data: x_batch, y_target: y_batch, training: True})
         loss_vec.append(temp_loss)

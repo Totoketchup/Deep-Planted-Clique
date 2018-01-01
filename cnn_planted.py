@@ -4,7 +4,6 @@ import numpy as np
 from tensorflow.python.framework import ops
 from data import get_data, get_numpy_data, get_h5_data
 from sklearn.preprocessing import StandardScaler
-import argparse
 
 def blstm(input_tensor, hid, i, kp):
     forward_input = input_tensor
@@ -31,19 +30,17 @@ def blstm(input_tensor, hid, i, kp):
 # seq_size = dim
 
 # x_vals, y_vals = get_numpy_data('clique-N1000-K31-E50-labels.npy','clique-N1000-K31-E50-features.npy')
-x_vals, y_vals = get_h5_data(100,10,0,2,1,True,L='Deletion')
+x_vals, y_vals = get_h5_data(100,10,10,1,1,True,L='Deletion')
 shape = x_vals.shape
 
-# x_vals = np.reshape(x_vals, (shape[0], -1, shape[-1]))
+x_vals = np.reshape(x_vals, (shape[0], -1, shape[-1]))
+
+x_vals = x_vals[: , :, :]
 
 # x_vals = np.transpose(x_vals, (0, 2, 1))
-x_vals = x_vals[:, :, :]
-print shape
-# x_vals = np.concatenate((x_vals[:,:,:1],x_vals[:,:,-1:]),2)
-
-x_vals = (x_vals - np.mean(x_vals,0,keepdims=True)) / np.std(x_vals,0,keepdims=True)
-N, seq_size, feature_dim = x_vals.shape
-print x_vals
+x_vals = (x_vals - np.mean(x_vals,0)) / np.std(x_vals,0)
+N, height, width = x_vals.shape
+print x_vals.shape
 # x_vals = (x_vals - np.amin(x_vals,0, keepdims=True))/ np.array((np.amax(x_vals,0,keepdims=True) - np.amin(x_vals,0,keepdims=True)), 'float32')
 
 # make results reproducible
@@ -66,7 +63,7 @@ x_vals_test = x_vals[train_length:]
 y_vals_test = y_vals[train_length:]
 
 hidden = 50
-layers = 2
+layers = 4
 classes = 2
 
 
@@ -74,29 +71,49 @@ ops.reset_default_graph()
 sess = tf.Session()
 
 # Create Placeholders
-x_data = tf.placeholder(shape=[None, seq_size, feature_dim], dtype=tf.float32)
+x_data = tf.placeholder(shape=[None, height, width, 1], dtype=tf.float32)
 y_target = tf.placeholder(shape=[None, classes], dtype=tf.float32)
 keep_prob = tf.placeholder(tf.float32)
 alpha = tf.placeholder(tf.float32)
+training = tf.placeholder(tf.bool)
 
+conv1 = tf.layers.conv2d(
+    inputs=x_data,
+    filters=16,
+    kernel_size=[5, 5],
+    padding="same",
+    activation=tf.nn.relu)
 
-# cells = []
-# for _ in range(layers):
-#     cell = tf.contrib.rnn.BasicLSTMCell(hidden) # Or LSTMCell(num_units)
-#     cell = tf.contrib.rnn.DropoutWrapper(cell, output_keep_prob=keep_prob)
-#     cells.append(cell)
-# network = tf.contrib.rnn.MultiRNNCell(cells)
-# output, _ = tf.nn.dynamic_rnn(network, x_data, dtype=tf.float32)
+pool1 = tf.layers.max_pooling2d(inputs=conv1, pool_size=[2, 2], strides=2)
 
+# conv2 = tf.layers.conv2d(
+#     inputs=pool1,
+#     filters=16,
+#     kernel_size=[5, 5],
+#     padding="same",
+#     activation=tf.nn.relu)
 
-l = blstm(x_data, 10, 1, keep_prob)
-# l = blstm(l, 50, 2, keep_prob)
-output = blstm(l, 10, 3, keep_prob)
+# pool2 = tf.layers.max_pooling2d(inputs=conv2, pool_size=[2, 2], strides=2)
 
-# Select last output.
-last = output[:, -1, :]
+conv3 = tf.layers.conv2d(
+    inputs=pool1,
+    filters=16,
+    kernel_size=[2, 2],
+    padding="same",
+    activation=tf.nn.relu)
+
+pool3 = tf.layers.max_pooling2d(inputs=conv3, pool_size=[2, 2], strides=2)
+
+pool3_flat = tf.contrib.layers.flatten(pool3)
+print pool3_flat
 # Softmax layer.
-prediction = tf.layers.dense(last, classes)
+dense1 = tf.layers.dense(pool3_flat, 100)
+
+dropout = tf.layers.dropout(inputs=dense1, rate=keep_prob, training=training)
+dense2 = tf.layers.dense(dropout, 50)
+dropout2 = tf.layers.dropout(inputs=dense2, rate=keep_prob, training=training)
+prediction = tf.layers.dense(dropout2, classes)
+
 
 # Declare loss function (L1)
 loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=prediction, labels=y_target))
@@ -116,7 +133,7 @@ acc_vec = []
 temp_vecloss = []
 temp_vecacc = []
 
-batch_size = 256
+batch_size = 512
 size_epoch = len(x_vals_train)//batch_size
 epochs = 1000
 ACC_PERIOD = 10
@@ -124,7 +141,7 @@ ACC_PERIOD = 10
 for e in range(epochs):
     for i in range(size_epoch):
         step = e*size_epoch + i
-        x_batch = x_vals_train[i*batch_size:(i+1)*batch_size]
+        x_batch = x_vals_train[i*batch_size:(i+1)*batch_size][:,:,:,np.newaxis]
         y_batch = y_vals_train[i*batch_size:(i+1)*batch_size]
 
         learning_rate = 0.001
@@ -132,20 +149,24 @@ for e in range(epochs):
         #     learning_rate = 0.01 
 
         _ , temp_loss, u = sess.run([train_step, loss, accuracy], 
-            feed_dict={alpha: learning_rate, x_data: x_batch, y_target: y_batch, keep_prob: 0.5})
+            feed_dict={alpha: learning_rate, x_data: x_batch, y_target: y_batch, keep_prob: 0.8, training:True})
         loss_vec.append(temp_loss)
         temp_vecloss.append(temp_loss)
         temp_vecacc.append(u)
+        # test_temp_loss = sess.run(loss, feed_dict={x_data: x_vals_test, y_target: y_vals_test)})
+        # test_loss.append(test_temp_loss)
         if (step) % ACC_PERIOD == 0:
+            
             acc = sess.run(accuracy, 
-                feed_dict={x_data: x_vals_test, 
+                feed_dict={x_data: x_vals_test[:,:,:,np.newaxis], 
                 y_target: y_vals_test, 
-                keep_prob: 1.0})
+                keep_prob: 1.0,
+                training:False})
+            acc_vec.append(acc)
             avg = sum(temp_vecloss) / float(len(temp_vecloss))
             avg_acc = sum(temp_vecacc) / float(len(temp_vecacc))
-            print('Epoch: ' + str(e)+ ' Step: ' + str(step+1) + '. Loss = ' + str(avg) + ' accuracy = ' + str(acc)+ ' train_acc = '+ str(avg_acc))
+            print('Epoch: ' + str(e)+ ' Step: ' + str(step+1) + '. Loss = ' + str(avg) + ' accuracy = ' + str(acc)+ ' train_acc = '+ str(u))
             temp_vecloss = []
-            temp_vecacc = []
 
 # Plot loss (MSE) over time
 t_loss = np.arange(0, len(loss_vec))
