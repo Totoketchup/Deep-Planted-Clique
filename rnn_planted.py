@@ -81,7 +81,7 @@ learning_rate = [0.01, 0.001]
 batch_size = [1024, 2048]
 optimizer = [tf.train.AdamOptimizer]
 
-# ###
+###
 ### one shot
 ###
 
@@ -138,7 +138,7 @@ class RNN:
 
             z = self.x_data
             for i in range(self.layers):
-                z = blstm(self.x_data, self.hidden, 1, self.dropout)
+                z = blstm(z, self.hidden, 1, self.dropout)
             # Select last output.
             last = z[:, -1, :]
             prediction = tf.layers.dense(last, classes)
