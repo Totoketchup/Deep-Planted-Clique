@@ -41,12 +41,10 @@ def get_numpy_data(labels_fn, features_fn, one_hot=True):
 
 	return features, y
 
-def get_h5_data(N, K, E, M, P, ex, L=None, one_hot=True):
-	if L is None:
-		name = "clique-N{}-K{}-E{}-M{}-P{}-ex{}".format(N, K, E, M, P, ex)
-	else:
-		name = "clique-N{}-K{}-E{}-M{}-P{}-ex{}-Lapl{}".format(N, K, E, M, P, ex, L)
+def get_h5_data(N, K, E, M, ex, L=True, fl=False, one_hot=True):
 
+	name = "clique-N{}-K{}-E{}-M{}-ex{}-L:{}-F:{}".format(N, K, E, M, ex, L, fl)
+	print name
 	h5 = h5py.File('data/'+name+'.h5')
 
 	features = h5['features']
@@ -57,6 +55,19 @@ def get_h5_data(N, K, E, M, P, ex, L=None, one_hot=True):
 	else:
 		y = labels
 	return features, y
+
+def get_topological_data(N, K):
+
+	name = "clique-N{}-K{}".format(N, K)
+	h5 = h5py.File('data/'+name+'.h5')
+
+	features = h5['features']
+	labels = h5['labels']
+	s = pd.Series(labels)
+	y = np.array(pd.get_dummies(s), 'float32')
+
+	return features, y
+
 
 #TEST
 if __name__ == "__main__":

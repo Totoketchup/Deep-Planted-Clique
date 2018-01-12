@@ -30,7 +30,7 @@ def blstm(input_tensor, hid, i, kp):
 # seq_size = dim
 
 # x_vals, y_vals = get_numpy_data('clique-N1000-K31-E50-labels.npy','clique-N1000-K31-E50-features.npy')
-x_vals, y_vals = get_h5_data(100,10,10,1,1,True,L='Deletion')
+x_vals, y_vals = get_h5_data(N=100, K=10, E=10, M=1, ex=True, L=True, fl=False, one_hot=True)
 shape = x_vals.shape
 
 x_vals = np.reshape(x_vals, (shape[0], -1, shape[-1]))
