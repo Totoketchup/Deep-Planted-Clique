@@ -120,9 +120,9 @@ class RNN:
 
 # x_vals, y_vals = get_h5_data(100,10,0,2,True,fl=True)
 # x_vals, y_vals = get_topological_data(100,10)
-x_vals, y_vals = get_h5_data(N=100, K=10, E=0, M=2, ex=True, L=False, fl=False, one_hot=True)
+x_vals, y_vals = get_h5_data(N=100, K=10, E=10, M=1, ex=True, L=False, fl=False, one_hot=True)
 print x_vals.shape
-x_vals= x_vals[:,:, :1]
+x_vals= x_vals[:,:, :]
 
 
 x_vals = (x_vals - np.mean(x_vals,0)) / np.std(x_vals,0)
@@ -185,7 +185,7 @@ for t in range(trials):
     optimizer = [tf.train.AdamOptimizer]
 
 
-    epochs = 200
+    epochs = 150
     eval_epoch = 1
 
 
