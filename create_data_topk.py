@@ -10,6 +10,10 @@ from networkx.algorithms.centrality import degree_centrality, betweenness_centra
 from networkx.algorithms.cluster import clustering
 from networkx.algorithms.distance_measures import diameter, radius
 from networkx.algorithms.shortest_paths.generic import shortest_path_length
+from joblib import Parallel, delayed
+from multiprocessing import Pool
+import multiprocessing
+    
 
 def get_args():
 	parser = argparse.ArgumentParser(description='Create Planted Clique Dataset')
@@ -27,7 +31,7 @@ def get_args():
 	parser.add_argument(
 		'-m', '--multiple', type=int, help='Analyze the top m*k nodes', required=False, default=1)
 	parser.add_argument(
-		'-l', '--laplacian', type=int, help='Analyze Laplacian', required=False, default=0)
+		'-l', '--laplacian', type=int, help='Use Laplacian eigenvectors for top K top E', required=False, default=0)
 	parser.add_argument(
 		'-a', '--aligned', type=int, help='1D data', required=False, default=0)
 	parser.add_argument(
@@ -78,18 +82,18 @@ def get_topk(G, k, E, ex, L, fl):
 
 	# Deletion or merging of N - k nodes
 	if L:
-		laplacian = nx.laplacian_matrix(G_, list(top_k_nodes)).toarray()
+		laplacian = nx.laplacian_matrix(G).toarray()
 		eigenvalues, eigenvectors = np.linalg.eig(laplacian)
 		# Sort according to eigenvalues
 		second = eigenvalues.argsort()[-2] # Second eigenvalue
-		connectivity = eigenvectors[:, second] # Second eigenvector
+		connectivity = np.abs(eigenvectors[:, second]) # Second eigenvector
 
-		top_connectivity = connectivity.argsort[::-1] # decreasing order nodes
+		top_connectivity = connectivity.argsort()[::-1] # decreasing order nodes
 		top_k_nodes = top_connectivity[:k]
 
 		_, deg = zip(*degrees)
-		top_k_degree = deg[top_k_nodes]
-
+		deg = np.array(deg)
+		top_k_degree = deg[top_k_nodes][:, np.newaxis]
 	else:
 		top = sorted(degrees, key = lambda x : x[1], reverse=True)
 		top_k = top[:k] # Get the top k nodes
@@ -115,17 +119,7 @@ def get_topk(G, k, E, ex, L, fl):
 	else:
 		output = top_k_degree
 
-	output = np.array(output) 
-
-	G_ = G
-	# # Deletion or merging of N - k nodes
-	# if L:
-	# 	laplacian = nx.laplacian_matrix(G_, list(top_k_nodes)).toarray()
-	# 	eigenvalues, eigenvectors = np.linalg.eig(laplacian)
-	# 	# Sort according to eigenvalues
-	# 	second = eigenvalues.argsort()[-2] # Second eigenvalue
-	# 	connectivity = eigenvectors[:, second] # Second eigenvector
-	# 	output = np.concatenate((output, np.abs(connectivity[:, np.newaxis])), 1)
+	output = np.array(output)
 
 	if fl:
 		output = np.reshape(np.transpose(output), -1)
@@ -141,13 +135,33 @@ topo = bool(topo)
 seed = 3
 np.random.seed(seed)
 
+inputs = range(2*N) 
+def processInput(i):
+	g = nx.erdos_renyi_graph(V, 0.5, seed=seed*i)
+	if i < N:
+		label = 0
+	else:
+		add_random_k_clique(g, K) # Add K clique in the graph
+		label = 1
+	feature = get_topk(g, M*K, E, exclude, L, flatten)
+	return feature, label
+
+num_cores = multiprocessing.cpu_count()
+pool = Pool(processes=6)
+results = pool.map(processInput, range(2*N))
+pool.close()
+pool.join()
+# results = Parallel(n_jobs=5)(processInput(i) for i in inputs)
+print 'HA'
+print results
+features, labels = zip(*results)
+
+print 'OH'
 name = "clique-N{}-K{}-E{}-M{}-ex{}-L:{}-F:{}".format(V, K, E, M, exclude, L, flatten)
 with h5py.File('data/'+name+'.h5', 'w') as h5_file:
 
-	if not L:
-		dim = E+1
-	else: 
-		dim = E+1+1
+	dim = E+1
+	
 
 	if not flatten:
 		feature_shape = (2*N, M*K, dim)
@@ -157,15 +171,17 @@ with h5py.File('data/'+name+'.h5', 'w') as h5_file:
 	labels_shape = (2*N,)
 	features_df = h5_file.create_dataset('features', shape=feature_shape)
 	labels_df = h5_file.create_dataset('labels', shape=labels_shape)
+	features_df[...] = features
+	labels_df[...] = labels
 
-	data = []
-	labels = []
-	for n in tqdm(range(2*N)):
-		g = nx.erdos_renyi_graph(V, 0.5, seed=seed*n)
-		if n < N:
-			labels_df[n] = 0
-		else:
-			add_random_k_clique(g, K) # Add K clique in the graph
-			labels_df[n] = 1
-		features_df[n] = get_topk(g, M*K, E, exclude, L, flatten)
-
+ 	# data = []
+	# labels = []
+	# for n in tqdm(range(2*N)):
+	# 	g = nx.erdos_renyi_graph(V, 0.5, seed=seed*n)
+	# 	if n < N:
+	# 		labels_df[n] = 0
+	# 	else:
+	# 		add_random_k_clique(g, K) # Add K clique in the graph
+	# 		labels_df[n] = 1
+	# 	features_df[n] = get_topk(g, M*K, E, exclude, L, flatten)
+	# 	print feature_shape

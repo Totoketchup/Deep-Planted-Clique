@@ -7,6 +7,9 @@ from itertools import product
 import os
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
+ops.reset_default_graph()
+np.random.seed(42)
+tf.set_random_seed(42)
 
 def blstm(input_tensor, hid, i, kp):
     forward_input = input_tensor
@@ -27,74 +30,6 @@ def blstm(input_tensor, hid, i, kp):
     # Concatenate the RNN outputs and return
     return tf.concat([forward_out[:,:,:], backward_out[:,::-1,:]], 2)
 
-####
-#### GET THE DATA 
-####
-
-# x_vals, y_vals = get_h5_data(100,10,0,2,True,fl=True)
-# x_vals, y_vals = get_topological_data(100,10)
-x_vals, y_vals = get_h5_data(N=100, K=10, E=0, M=1, ex=True, L=False, fl=False, one_hot=True)
-print x_vals.shape
-
-
-x_vals = (x_vals - np.mean(x_vals,0)) / np.std(x_vals,0)
-# x_vals = x_vals[:, :-2]
-_ , _ , dim  = x_vals.shape
-_, classes = y_vals.shape
-
-####
-#### DATA SPLITTING / SHUFFLING
-####
-
-s = np.arange(len(x_vals))
-np.random.shuffle(s)
-
-x_vals = x_vals[s]
-y_vals = y_vals[s]
-
-# Split data into train/test/validation = 80%/10%/10%
-train_length = int(0.8*len(x_vals))
-
-x_vals_train = x_vals[:train_length]
-y_vals_train = y_vals[:train_length]
-
-x_vals_test_valid = x_vals[train_length:]
-y_vals_test_valid = y_vals[train_length:]
-
-test_length = int(0.5*len(x_vals_test_valid))
-
-x_vals_test = x_vals_test_valid[:test_length]
-y_vals_test = y_vals_test_valid[:test_length]
-
-x_vals_valid = x_vals_test_valid[test_length:]
-y_vals_valid = y_vals_test_valid[test_length:]
-
-
-####
-#### HYPERPARAMETERS SPACE SEARCH
-####
-
-hidden = [10, 20, 50]
-layers = [1, 2, 3]
-dropout = [0.8, 0.5, 0.2]
-learning_rate = [0.01, 0.001]
-batch_size = [1024, 2048]
-optimizer = [tf.train.AdamOptimizer]
-
-###
-### one shot
-###
-
-# h1 = [20]
-# h2 = [10,5]
-# dropout = [0.2]
-# learning_rate = [0.001]
-# batch_size = [1024]
-# optimizer = [tf.train.AdamOptimizer]
-
-
-epochs = 100
-eval_epoch = 10
 
 ####
 #### NETWORK CLASS
@@ -128,17 +63,17 @@ class RNN:
             self.training = tf.placeholder(tf.bool)
 
 
-            # cells = []
-            # for _ in range(self.layers):
-            #     cell = tf.contrib.rnn.BasicLSTMCell(self.hidden) # Or LSTMCell(num_units)
-            #     cell = tf.contrib.rnn.DropoutWrapper(cell, output_keep_prob=self.dropout)
-            #     cells.append(cell)
-            # network = tf.contrib.rnn.MultiRNNCell(cells)
-            # output, _ = tf.nn.dynamic_rnn(network, self.x_data, dtype=tf.float32)
+            cells = []
+            for _ in range(self.layers):
+                cell = tf.contrib.rnn.BasicLSTMCell(self.hidden) # Or LSTMCell(num_units)
+                cell = tf.contrib.rnn.DropoutWrapper(cell, output_keep_prob=self.dropout)
+                cells.append(cell)
+            network = tf.contrib.rnn.MultiRNNCell(cells)
+            z, _ = tf.nn.dynamic_rnn(network, self.x_data, dtype=tf.float32)
 
-            z = self.x_data
-            for i in range(self.layers):
-                z = blstm(z, self.hidden, 1, self.dropout)
+            # z = self.x_data
+            # for i in range(self.layers):
+            #     z = blstm(z, self.hidden, i, self.dropout)
             # Select last output.
             last = z[:, -1, :]
             prediction = tf.layers.dense(last, classes)
@@ -180,51 +115,146 @@ class RNN:
                 network.train(x_batch, y_batch)
 
 ####
-#### GRID SEARCH
+#### GET THE DATA 
 ####
 
-best_validation_accuracy = 0.0
-best_hyperparams = {'h1':0,'h2':0,'dropout':0,'learning_rate':0,'batch_size':0, 'optimizer':0}
-
-for _hidden, _layers, _dropout, _learning_rate, _batch_size, _optimizer in product(hidden, layers, dropout, learning_rate, batch_size, optimizer):
-    hyperparams = { 'hidden':_hidden,
-                    'layers':_layers,
-                    'dropout':_dropout,
-                    'learning_rate':_learning_rate,
-                    'batch_size':_batch_size, 
-                    'optimizer':_optimizer,
-                    'epochs':0}
-    epoch_size = len(x_vals_train)//_batch_size
+# x_vals, y_vals = get_h5_data(100,10,0,2,True,fl=True)
+# x_vals, y_vals = get_topological_data(100,10)
+x_vals, y_vals = get_h5_data(N=100, K=10, E=0, M=2, ex=True, L=False, fl=False, one_hot=True)
+print x_vals.shape
+x_vals= x_vals[:,:, :1]
 
 
-    print 'Running with ' + str(hyperparams)
+x_vals = (x_vals - np.mean(x_vals,0)) / np.std(x_vals,0)
+# x_vals = x_vals[:, :-2]
+_ , _ , dim  = x_vals.shape
+_, classes = y_vals.shape
+test_acc_t = []
+valid_acc_t = []
 
-    network = RNN(hyperparams)
-    network.init()
+trials = 10
+for t in range(trials):
+    ####
+    #### DATA SPLITTING / SHUFFLING
+    ####
 
-    for e in range(epochs):
-        network.fit_epoch(x_vals_train, y_vals_train, e, epoch_size)
-        if e != 0 and (e+1) %eval_epoch == 0:
-            acc = network.test(x_vals_valid, y_vals_valid)
-            print('Epoch: ' + str(e+1) + ' accuracy = ' + str(acc))
-            if acc > best_validation_accuracy:
-                print 'BEST'
-                best_validation_accuracy = acc
-                best_hyperparams['epochs'] = e+1
-                best_hyperparams['valid_accuracy'] = acc
+    s = np.arange(len(x_vals))
+    np.random.shuffle(s)
+
+    x_vals = x_vals[s]
+    y_vals = y_vals[s]
+
+    # Split data into train/test/validation = 80%/10%/10%
+    train_length = int(0.8*len(x_vals))
+
+    x_vals_train = x_vals[:train_length]
+    y_vals_train = y_vals[:train_length]
+
+    x_vals_test_valid = x_vals[train_length:]
+    y_vals_test_valid = y_vals[train_length:]
+
+    test_length = int(0.5*len(x_vals_test_valid))
+
+    x_vals_test = x_vals_test_valid[:test_length]
+    y_vals_test = y_vals_test_valid[:test_length]
+
+    x_vals_valid = x_vals_test_valid[test_length:]
+    y_vals_valid = y_vals_test_valid[test_length:]
 
 
-print 'The best hyperparameters set is:'
-print str(best_hyperparams)
-network = RNN(best_hyperparams)
-network.init()
-network.fit(x_vals_train, y_vals_train, best_hyperparams['epochs'])
-acc = network.test(x_vals_test, y_vals_test)
-print ' Test Accuracy = ' + str(acc)
+    ####
+    #### HYPERPARAMETERS SPACE SEARCH
+    ####
+
+    # hidden = [30, 40, 50]
+    # layers = [3, 4]
+    # dropout = [0.6, 0.5, 0.4]
+    # learning_rate = [0.001]
+    # batch_size = [2048]
+    # optimizer = [tf.train.AdamOptimizer]
+
+    ###
+    ### one shot
+    ###
+
+    hidden = [30]
+    layers = [3]
+    dropout = [0.6]
+    learning_rate = [0.001]
+    batch_size = [2048]
+    optimizer = [tf.train.AdamOptimizer]
+
+
+    epochs = 200
+    eval_epoch = 1
 
 
 
-# {'optimizer': <class 'tensorflow.python.training.adam.AdamOptimizer'>, 'h2': 50, 
-# 'dropout': 0.6, 'h1': 20, 'batch_size': 2048, 'epochs': 300, 'learning_rate': 0.01}
-# Test Accuracy = 0.6655
-# Valid Accuracy : 0.671
+    ####
+    #### GRID SEARCH
+    ####
+
+    best_validation_accuracy = 0.0
+    best_hyperparams = {'hidden':0,'layers':0,'dropout':0,'learning_rate':0,'batch_size':0, 'optimizer':0}
+
+    for _hidden, _layers, _dropout, _learning_rate, _batch_size, _optimizer in product(hidden, layers, dropout, learning_rate, batch_size, optimizer):
+        hyperparams = { 'hidden':_hidden,
+                        'layers':_layers,
+                        'dropout':_dropout,
+                        'learning_rate':_learning_rate,
+                        'batch_size':_batch_size, 
+                        'optimizer':_optimizer,
+                        'epochs':0}
+        epoch_size = len(x_vals_train)//_batch_size
+
+
+        print 'Running with ' + str(hyperparams)
+
+        network = RNN(hyperparams)
+        network.init()
+
+        for e in range(epochs):
+            network.fit_epoch(x_vals_train, y_vals_train, e, epoch_size)
+            if e != 0 and (e+1) %eval_epoch == 0:
+                acc = network.test(x_vals_valid, y_vals_valid)
+                print('Epoch: ' + str(e+1) + ' accuracy = ' + str(acc))
+                if acc > best_validation_accuracy:
+                    best_validation_accuracy = acc
+                    best_hyperparams = hyperparams
+                    best_hyperparams['epochs'] = e+1
+                    best_hyperparams['valid_accuracy'] = acc
+                    acc_test = network.test(x_vals_test, y_vals_test)
+                    best_hyperparams['test_accuracy'] = acc_test
+                    print 'BEST , test = ' + str(acc_test)
+
+
+
+    test_acc_t.append(best_hyperparams['test_accuracy'])
+    valid_acc_t.append(best_hyperparams['valid_accuracy'])
+    print 'The best hyperparameters set is:'
+    print str(best_hyperparams)
+
+print 'On '+str(trials)+' Trials:'
+print 'Test mean = '+str(np.mean(test_acc_t))
+print 'Valid mean = '+str(np.mean(valid_acc_t))
+
+# K=10 E=0 M=1
+# {'layers': 1, 'optimizer': <class 'tensorflow.python.training.adam.AdamOptimizer'>, 'learning_rate': 0.001, 
+# 'batch_size': 2048, 'epochs': 110, 'valid_accuracy': 0.64450002, 'hidden': 20, 'dropout': 0.7}
+# Test Accuracy = 0.646
+
+
+# K=10 E=10 M = 1
+#{'layers': 3, 'optimizer': <class 'tensorflow.python.training.adam.AdamOptimizer'>, 'learning_rate': 0.001,
+# 'batch_size': 2048, 'epochs': 30, 'valid_accuracy': 0.65700001, 'hidden': 10, 'dropout': 0.6}
+#  Test Accuracy = 0.6585
+
+# K=10 E=10 M = 2
+#{'layers': 3, 'optimizer': <class 'tensorflow.python.training.adam.AdamOptimizer'>, 
+# 'learning_rate': 0.001, 'batch_size': 2048, 'epochs': 70, 'valid_accuracy': 0.65100002, 'hidden': 30, 
+# 'dropout': 0.6}
+#Test Accuracy = 0.663
+
+#{'layers': 4, 'optimizer': <class 'tensorflow.python.training.adam.AdamOptimizer'>, 'learning_rate': 0.001, 
+# 'batch_size': 2048, 'epochs': 30, 'valid_accuracy': 0.64999998, 'hidden': 50, 'dropout': 0.5}
+# Test Accuracy = 0.657

@@ -5,37 +5,18 @@ from tensorflow.python.framework import ops
 from data import get_data, get_numpy_data, get_h5_data
 from sklearn.preprocessing import StandardScaler
 
-def blstm(input_tensor, hid, i, kp):
-    forward_input = input_tensor
-    backward_input = tf.reverse(input_tensor, [1])
-
-    with tf.variable_scope('forward_'+str(i)):
-        # Forward pass
-        forward_lstm = tf.contrib.rnn.BasicLSTMCell(hid//2)
-        forward_lstm = tf.contrib.rnn.DropoutWrapper(forward_lstm, kp, kp, kp)
-        forward_out, _ = tf.nn.dynamic_rnn(forward_lstm, forward_input, dtype=tf.float32)
-
-    with tf.variable_scope('backward_'+str(i)):
-        # backward pass
-        backward_lstm = tf.contrib.rnn.BasicLSTMCell(hid//2)
-        backward_lstm = tf.contrib.rnn.DropoutWrapper(backward_lstm, kp, kp, kp)
-        backward_out, _ = tf.nn.dynamic_rnn(backward_lstm, backward_input, dtype=tf.float32)
-
-    # Concatenate the RNN outputs and return
-    return tf.concat([forward_out[:,:,:], backward_out[:,::-1,:]], 2)
-
 # x_vals, y_vals = get_data('degree_V2500_k50_train_label100000_2.txt', 'topk_degree_V2500_k50_train_feature100000.txt')
 # dim = 50
 # feature_dim = 1
 # seq_size = dim
 
 # x_vals, y_vals = get_numpy_data('clique-N1000-K31-E50-labels.npy','clique-N1000-K31-E50-features.npy')
-x_vals, y_vals = get_h5_data(N=100, K=10, E=10, M=1, ex=True, L=True, fl=False, one_hot=True)
+x_vals, y_vals = get_h5_data(N=1000, K=25, E=10, M=1, ex=True, L=False, fl=False, one_hot=True)
 shape = x_vals.shape
 
 x_vals = np.reshape(x_vals, (shape[0], -1, shape[-1]))
 
-x_vals = x_vals[: , :, :]
+x_vals = x_vals[:, :, :]
 
 # x_vals = np.transpose(x_vals, (0, 2, 1))
 x_vals = (x_vals - np.mean(x_vals,0)) / np.std(x_vals,0)
@@ -79,38 +60,38 @@ training = tf.placeholder(tf.bool)
 
 conv1 = tf.layers.conv2d(
     inputs=x_data,
-    filters=16,
-    kernel_size=[5, 5],
+    filters=4,
+    kernel_size=[3, 3],
     padding="same",
-    activation=tf.nn.relu)
+    activation=tf.nn.sigmoid)
 
 pool1 = tf.layers.max_pooling2d(inputs=conv1, pool_size=[2, 2], strides=2)
 
-# conv2 = tf.layers.conv2d(
-#     inputs=pool1,
-#     filters=16,
-#     kernel_size=[5, 5],
-#     padding="same",
-#     activation=tf.nn.relu)
+conv2 = tf.layers.conv2d(
+    inputs=pool1,
+    filters=8,
+    kernel_size=[3, 3],
+    padding="same",
+    activation=tf.nn.sigmoid)
 
-# pool2 = tf.layers.max_pooling2d(inputs=conv2, pool_size=[2, 2], strides=2)
+pool2 = tf.layers.max_pooling2d(inputs=conv2, pool_size=[2, 2], strides=2)
+
 
 conv3 = tf.layers.conv2d(
-    inputs=pool1,
+    inputs=pool2,
     filters=16,
-    kernel_size=[2, 2],
+    kernel_size=[3, 3],
     padding="same",
-    activation=tf.nn.relu)
+    activation=tf.nn.sigmoid)
 
 pool3 = tf.layers.max_pooling2d(inputs=conv3, pool_size=[2, 2], strides=2)
 
 pool3_flat = tf.contrib.layers.flatten(pool3)
 print pool3_flat
 # Softmax layer.
-dense1 = tf.layers.dense(pool3_flat, 100)
-
+dense1 = tf.layers.dense(pool3_flat, 32, activation=tf.nn.sigmoid)
 dropout = tf.layers.dropout(inputs=dense1, rate=keep_prob, training=training)
-dense2 = tf.layers.dense(dropout, 50)
+dense2 = tf.layers.dense(dropout, 16, activation=tf.nn.sigmoid)
 dropout2 = tf.layers.dropout(inputs=dense2, rate=keep_prob, training=training)
 prediction = tf.layers.dense(dropout2, classes)
 
@@ -144,12 +125,10 @@ for e in range(epochs):
         x_batch = x_vals_train[i*batch_size:(i+1)*batch_size][:,:,:,np.newaxis]
         y_batch = y_vals_train[i*batch_size:(i+1)*batch_size]
 
-        learning_rate = 0.001
-        # if step > 4000:
-        #     learning_rate = 0.01 
+        learning_rate = 0.001 
 
         _ , temp_loss, u = sess.run([train_step, loss, accuracy], 
-            feed_dict={alpha: learning_rate, x_data: x_batch, y_target: y_batch, keep_prob: 0.8, training:True})
+            feed_dict={alpha: learning_rate, x_data: x_batch, y_target: y_batch, keep_prob: 0.9, training:True})
         loss_vec.append(temp_loss)
         temp_vecloss.append(temp_loss)
         temp_vecacc.append(u)
@@ -179,3 +158,4 @@ plt.legend(loc='upper right')
 plt.xlabel('Generation')
 plt.ylabel('Loss')
 plt.show()
+
