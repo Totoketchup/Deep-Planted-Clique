@@ -14,5 +14,36 @@
 # python create_data_topk.py -v 1000 -n 10000 -k 25 -m 2
 # python create_data_topk.py -v 1000 -n 10000 -k 25 -m 1 -e 10 -ex 0
 # python create_data_topk.py -v 1000 -n 10000 -k 25 -m 1 -e 10 -ex 1
-python create_data_topk.py -v 1000 -n 10000 -k 25 -m 2 -e 10 -ex 
+# python create_data_topk.py -v 1000 -n 10000 -k 25 -m 2 -e 10 -ex  #TODO
 # python create_data_topk.py -v 1000 -n 10000 -k 25 -m 2 -e 10 -ex 0
+# python create_data_topk.py -v 100 -n 10000 -k 10 -m 2 -e 20 -ex 1
+# python create_data_topk.py -v 100 -n 10000 -k 10 -m 3 -e 25 -ex 1
+# python create_data_topk.py -v 1000 -n 10000 -k 30 -m 2 -e 60 -ex 1
+# python create_data_topk.py -v 1000 -n 10000 -k 30 -m 3 -e 90 -ex 1 # TODO
+# python create_data_topk.py -v 1000 -n 10000 -k 31 -m 2 -e 60 -ex 1
+# python create_data_topk.py -v 1000 -n 10000 -k 33 -m 2 -e 66 -ex 1
+# python create_data_topk.py -v 1000 -n 10000 -k 36 -m 2 -e 72 -ex 1
+# python create_data_topk.py -v 1000 -n 10000 -k 39 -m 2 -e 78 -ex 1
+# python create_data_topk.py -v 1000 -n 10000 -k 42 -m 2 -e 84 -ex 1
+# python create_data_topk.py -v 1000 -n 10000 -k 47 -m 2 -e 94 -ex 1
+# python create_data_topk.py -v 100 -n 10000 -k 5 -m 2 -e 10 -ex 1
+# python create_data_topk.py -v 100 -n 10000 -k 6 -m 2 -e 12 -ex 1
+# python create_data_topk.py -v 100 -n 10000 -k 7 -m 2 -e 14 -ex 1
+# python create_data_topk.py -v 100 -n 10000 -k 8 -m 2 -e 16 -ex 1
+# python create_data_topk.py -v 100 -n 10000 -k 9 -m 2 -e 18 -ex 1
+# python create_data_topk.py -v 100 -n 10000 -k 11 -m 2 -e 22 -ex 1
+# python create_data_topk.py -v 100 -n 10000 -k 12 -m 2 -e 24 -ex 1
+# python create_data_topk.py -v 100 -n 10000 -k 13 -m 2 -e 25 -ex 1
+# python create_data_topk.py -v 100 -n 10000 -k 14 -m 2 -e 25 -ex 1
+# python create_data_topk.py -v 100 -n 10000 -k 15 -m 2 -e 25 -ex 1
+# python create_data_topk.py -v 100 -n 10000 -k 16 -m 2 -e 23 -ex 1
+# python create_data_topk.py -v 100 -n 10000 -k 17 -m 2 -e 22 -ex 1
+# python create_data_topk.py -v 100 -n 10000 -k 18 -m 2 -e 21 -ex 1
+# python create_data_topk.py -v 100 -n 10000 -k 19 -m 2 -e 20 -ex 1
+# python create_data_topk.py -v 100 -n 10000 -k 20 -m 2 -e 18 -ex 1
+
+# python create_data_topk.py -v 1000 -n 10000 -k 10 -m 2 -e 20 -ex 1
+# python create_data_topk.py -v 1000 -n 10000 -k 20 -m 2 -e 40 -ex 1
+# python create_data_topk.py -v 1000 -n 10000 -k 25 -m 2 -e 50 -ex 1
+# python create_data_topk.py -v 1000 -n 10000 -k 26 -m 2 -e 52 -ex 1
+# python create_data_topk.py -v 1000 -n 10000 -k 27 -m 2 -e 54 -ex 1

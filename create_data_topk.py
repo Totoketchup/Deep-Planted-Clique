@@ -135,8 +135,10 @@ topo = bool(topo)
 seed = 3
 np.random.seed(seed)
 
-inputs = range(2*N) 
+inputs = range(2*N)
+
 def processInput(i):
+	# print i
 	g = nx.erdos_renyi_graph(V, 0.5, seed=seed*i)
 	if i < N:
 		label = 0
@@ -148,16 +150,15 @@ def processInput(i):
 
 num_cores = multiprocessing.cpu_count()
 pool = Pool(processes=6)
-results = pool.map(processInput, range(2*N))
+results = pool.map(processInput, inputs)
 pool.close()
 pool.join()
 # results = Parallel(n_jobs=5)(processInput(i) for i in inputs)
-print 'HA'
-print results
+# print results
 features, labels = zip(*results)
 
-print 'OH'
 name = "clique-N{}-K{}-E{}-M{}-ex{}-L:{}-F:{}".format(V, K, E, M, exclude, L, flatten)
+print name
 with h5py.File('data/'+name+'.h5', 'w') as h5_file:
 
 	dim = E+1
