@@ -72,14 +72,14 @@ if __name__ == '__main__':
 	else:
 
 		layers = [	
-			CNN_description(16, [5,5], tf.nn.relu),
-			CNN_description(32, [3,3], tf.nn.relu),
-			CNN_description(64, [2,2], tf.nn.relu),
+			CNN_description(8, [5,5], tf.nn.relu),
+			CNN_description(16, [3,3], tf.nn.relu),
+			CNN_description(32, [2,2], tf.nn.relu),
 		]
 
 		ffcs = [
-			FF_description(256, tf.nn.relu),
-			FF_description(128, tf.nn.relu),
+			FF_description(16, tf.nn.relu),
+			FF_description(8, tf.nn.relu),
 			FF_description(2, None)
 		]
 
@@ -92,7 +92,7 @@ if __name__ == '__main__':
 			'learning_rate' : 0.001,
 			'batch_size' : 512,
 			'optimizer' : tf.train.AdamOptimizer,
-			'epochs' : 10,
+			'epochs' : 100,
 			'classes' : 2,
 			'input_dim' : input_dim,
 			'data' : args.data
