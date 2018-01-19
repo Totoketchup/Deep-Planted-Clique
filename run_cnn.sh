@@ -7,4 +7,4 @@
 
 . /fefs/opt/dgx/env_set/common_env_set.sh
 
-python rnn_planted.py --data 
+python cnn_planted.py --data 
