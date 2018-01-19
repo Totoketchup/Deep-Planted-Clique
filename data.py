@@ -110,16 +110,17 @@ def get_data_by_name(path, name, one_hot=True):
 
 	features = h5['features']
 	labels = h5['labels']
+
 	if one_hot:
 		s = pd.Series(labels)
 		y = np.array(pd.get_dummies(s), 'float32')
 	else:
-		y = labels
+		y = np.expand_dims(np.array(labels),1)
 	return features, y
 
-def get_data(data, data_path, topological, feature_truc=0):
+def get_data(data, data_path, topological, feature_truc=0, one_hot=True):
 	if not topological:
-		x_vals, y_vals = get_data_by_name(data_path, data)
+		x_vals, y_vals = get_data_by_name(data_path, data, one_hot)
 	else:
 		x_vals, y_vals = get_data_by_name(data_path, data, False)
 
