@@ -72,8 +72,6 @@ if __name__ == '__main__':
 						x_vals_test, y_vals_test)
 
 	else:
-		print 'Mutliple trials runs'
-
 		params = {
 			'hidden' : 30,
 			'layers' : 3,
