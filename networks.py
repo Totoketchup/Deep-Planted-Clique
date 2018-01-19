@@ -129,7 +129,8 @@ class Network:
 		print self.data
 		self.merged = tf.summary.merge_all()
 		self.train_writer = tf.summary.FileWriter(os.path.join('log', self.subdir, self.data, self.name, self.run, 'train'), tf.get_default_graph())
-		self.valid_writer = tf.summary.FileWriter(os.path.join('log', self.subdir, self.data, self.name, self.run, 'test'), tf.get_default_graph())
+		self.valid_writer = tf.summary.FileWriter(os.path.join('log', self.subdir, self.data, self.name, self.run, 'valid'), tf.get_default_graph())
+		self.test_writer = tf.summary.FileWriter(os.path.join('log', self.subdir, self.data, self.name, self.run, 'test'), tf.get_default_graph())
 
 	def save_model(self, step):
 		self.saver.save(self.sess, os.path.join('models', self.name, self.run), global_step=step)
@@ -141,25 +142,40 @@ class Network:
 	@scope
 	def loss(self):
 		if self.classes > 1:
-			self.l = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=self.network, labels=self.y_target))
-			tf.summary.scalar('value', self.l)
+			l = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=self.network, labels=self.y_target))
+		else:
+			targets = tf.argmax(self.y_target, 1) # From one hot encoded to labels
+			l = tf.losses.log_loss(tf.squeeze(self.network), targets)
 
-		return self.l
+		tf.summary.scalar('value', l)
+		return l
 
 	@scope
 	def optimize(self):
 		my_opt = self.opt(self.learning_rate)
 		return my_opt.minimize(self.loss)
 
-			
 	@scope
-	def accuracy(self):
-		logits = tf.argmax(self.network, axis=1)
-		targets = tf.argmax(self.y_target, axis=1)
+	def accuracy(self, threshold=0.5):
+		if self.classes > 1:
+			logits = tf.argmax(self.network, axis=1)
+			targets = tf.argmax(self.y_target, axis=1)
 
-		acc = tf.reduce_mean(tf.cast(tf.equal(logits, targets), tf.float32))
+			acc = tf.reduce_mean(tf.cast(tf.equal(logits, targets), tf.float32))
+		else:
+			targets = tf.argmax(self.y_target, 1) # From one hot encoded to labels
+
+			false_positive = tf.logical_and(tf.less(threshold, self.loss), tf.equal(targets, 0))
+			true_positive = tf.logical_and(tf.less(self.loss, threshold), tf.equal(targets, 1))
+			acc = tf.reduce_mean(tf.cast(tf.logical_or(true_positive, false_positive), tf.float32))
+
 		tf.summary.scalar('value', acc)
 		return acc
+
+	@scope
+	def auc(self):
+		targets = tf.argmax(self.y_target, 1) # From one hot encoded to labels
+		return tf.metrics.auc(targets, self.network, num_thresholds=200)
 
 
 	def train(self, X, y, n):
@@ -171,8 +187,10 @@ class Network:
 		self.valid_writer.add_summary(summary, n)
 		return acc
 
-	def test(self, X, y):
-		return self.sess.run(self.accuracy, feed_dict={self.x_data: X, self.y_target: y, self.training:False})
+	def test(self, X, y, n):
+		summary, acc =  self.sess.run([self.merged, self.accuracy], feed_dict={self.x_data: X, self.y_target: y, self.training:False})
+		self.test_writer.add_summary(summary, n)
+		return acc
 
 	def init(self):
 		with self.graph.as_default():
@@ -206,11 +224,12 @@ class Network:
 			if e != 0 and (e+1) % eval_epoch == 0:
 				n = (e+1)*epoch_size
 				acc = self.valid(X_valid, y_valid, n)
+				print X_valid.shape
 				# print('Epoch: ' + str(e+1) + ' accuracy = ' + str(acc))
 				if acc > best_acc:
 					best_acc = acc
 					best_epoch = e + 1
-					acc_test = self.test(X_test, y_test)
+					acc_test = self.test(X_test, y_test, n)
 					best_test = acc_test
 					# print 'BEST , test = ' + str(acc_test)
 
@@ -321,13 +340,13 @@ class DNN(Network):
 
 	@scope
 	def network(self):
-			# Create Placeholders
-			z = self.x_data
-			for layer in self.hidden:
-				z = tf.layers.dense(z, layer, activation = self.activation)
-				z = tf.layers.dropout(z, rate= self.dropout, training = self.training)
+		# Create Placeholders
+		z = self.x_data
+		for layer in self.hidden:
+			z = tf.layers.dense(z, layer, activation = self.activation)
+			z = tf.layers.dropout(z, rate= self.dropout, training = self.training)
 
-			return tf.layers.dense(z, self.classes)
+		return tf.layers.dense(z, self.classes)
 
 
 class CNN_description:
@@ -412,7 +431,7 @@ class CNN(Network):
 			z = self.conv_layer(z, archi.filters, archi.size, archi.activation)
 
 		z = tf.layers.flatten(z)
-
+		print z
 		for i, ffc in enumerate(self.ffcs):
 			if i > 0: z = tf.layers.dropout(inputs=z, rate=self.dropout, training=self.training)
 			z = tf.layers.dense(z, ffc.hidden, activation=ffc.activation)

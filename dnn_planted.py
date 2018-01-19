@@ -26,11 +26,19 @@ if __name__ == '__main__':
 		'--search_grid', help='Do Search Grid', action="store_true")
 	parser.add_argument(
 		'--trials', type=int, help='number of trials', required=False, default=1)
+	parser.add_argument(
+		'--binary', help='Unique output', action="store_true")
+
 
 	args = parser.parse_args()
 
+	if args.binary:
+		classes = 1
+	else:
+		classes = 2
+
 	if not args.text:
-		x_vals, y_vals = get_data(args.data, args.data_path, args.topological)
+		x_vals, y_vals = get_data(args.data, args.data_path, args.topological, one_hot = not args.binary)
 	else:
 		x_vals, y_vals = get_txt_data(args.data, args.data_path)
 
@@ -63,7 +71,7 @@ if __name__ == '__main__':
 			'batch_size' : [512, 1024, 2048],
 			'optimizer' : [tf.train.AdamOptimizer],
 			'epochs' : [400],
-			'classes' : [2],
+			'classes' : [classes],
 			'input_dim' : [input_dim],
 			'activation' : [tf.nn.sigmoid],
 			'data' : [args.data]
@@ -95,7 +103,7 @@ if __name__ == '__main__':
 			'batch_size' : 512,
 			'optimizer' : tf.train.AdamOptimizer,
 			'epochs' : 400,
-			'classes' : 2,
+			'classes' : classes,
 			'input_dim' : input_dim,
 			'data' : args.data,
 			'activation' : tf.nn.sigmoid,
