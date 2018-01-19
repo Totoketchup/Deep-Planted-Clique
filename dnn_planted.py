@@ -43,6 +43,8 @@ if __name__ == '__main__':
 		x_vals, y_vals = get_txt_data(args.data, args.data_path)
 
 	x_vals = np.squeeze(x_vals)
+	if len(x_vals.shape) == 3:
+		x_vals = x_vals[:,:,0]
 	input_dim = x_vals.shape[-1]
 
 	trials = args.trials
@@ -96,13 +98,20 @@ if __name__ == '__main__':
 		#Test mean = 0.631532  std= 0.0145965
 		#Valid mean = 0.648995  std= 0.0132133
 		
+		# DNN_lea_0.001_epo_200_cla_1_opt_AdamOptimizer_act_
+		# sigmoid_inp_30_hid_200_200_dat_clique-N1000-K30-E30-M1-exTrue-L_False-F_False_dro_0.5_bat_512
+		# On 10 Trials:
+		# Test mean = 0.643915  std= 0.00401404098136
+		# Valid mean = 0.64779  std= 0.00260324797129
+
+
 		params = {
 			'hidden' : [200, 200],
-			'dropout' : 0.3,
-			'learning_rate' : 0.01,
+			'dropout' : 0.5,
+			'learning_rate' : 0.001,
 			'batch_size' : 512,
 			'optimizer' : tf.train.AdamOptimizer,
-			'epochs' : 400,
+			'epochs' : 200,
 			'classes' : classes,
 			'input_dim' : input_dim,
 			'data' : args.data,
