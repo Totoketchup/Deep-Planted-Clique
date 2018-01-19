@@ -75,13 +75,14 @@ if __name__ == '__main__':
 		params = {
 			'hidden' : 30,
 			'layers' : 3,
-			'dropout' : 0.6,
+			'dropout' : 0.5,
 			'learning_rate' : 0.001,
 			'batch_size' : 2048,
 			'optimizer' : tf.train.AdamOptimizer,
-			'epochs' : 10,
+			'epochs' : 400,
 			'classes' : 2,
-			'input_dim' : input_dim
+			'input_dim' : input_dim,
+			'data' : args.data
 		}
 
 		trials = args.trials
