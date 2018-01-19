@@ -9,6 +9,8 @@ import haikunator
 from types import *
 from tqdm import tqdm
 from data import train_test_valid_shuffle
+import matplotlib.pyplot as plt
+from sklearn.metrics import roc_curve, auc, accuracy_score
 
 class Trainer:
 
@@ -16,7 +18,6 @@ class Trainer:
 		self.net = network
 		self.args = args
 		self.trials = trials
-		print args
 
 	def train(self, X_, y_):
 		# print 'Running with ' + str(self.args)
@@ -55,7 +56,6 @@ class Optimizer:
 	def search(self, X, y, X_valid, y_valid, X_test, y_test):
 		best_validation_accuracy = 0
 		space = list(self.my_product(self.search_space))
-		print len(space)
 		for current_args in tqdm(space):
 			# print 'Running with ' + str(current_args)
 			batch_size = current_args['batch_size']
@@ -144,9 +144,7 @@ class Network:
 		if self.classes > 1:
 			l = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=self.network, labels=self.y_target))
 		else:
-			targets = tf.argmax(self.y_target, 1) # From one hot encoded to labels
-			l = tf.losses.log_loss(tf.squeeze(self.network), targets)
-
+			l = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=self.network, labels=self.y_target))
 		tf.summary.scalar('value', l)
 		return l
 
@@ -161,22 +159,18 @@ class Network:
 			logits = tf.argmax(self.network, axis=1)
 			targets = tf.argmax(self.y_target, axis=1)
 
-			acc = tf.reduce_mean(tf.cast(tf.equal(logits, targets), tf.float32))
+			acc_value = tf.reduce_mean(tf.cast(tf.equal(logits, targets), tf.float32))
+			acc = acc_value
 		else:
-			targets = tf.argmax(self.y_target, 1) # From one hot encoded to labels
+			acc_value, update = tf.metrics.auc(self.y_target, tf.nn.sigmoid(self.network), num_thresholds=2000)
+			acc = update
 
-			false_positive = tf.logical_and(tf.less(threshold, self.loss), tf.equal(targets, 0))
-			true_positive = tf.logical_and(tf.less(self.loss, threshold), tf.equal(targets, 1))
-			acc = tf.reduce_mean(tf.cast(tf.logical_or(true_positive, false_positive), tf.float32))
-
-		tf.summary.scalar('value', acc)
+		tf.summary.scalar('value', acc_value)
 		return acc
 
-	@scope
-	def auc(self):
-		targets = tf.argmax(self.y_target, 1) # From one hot encoded to labels
-		return tf.metrics.auc(targets, self.network, num_thresholds=200)
-
+	def predict(self, X):
+		val = self.sess.run(tf.nn.sigmoid(self.network), feed_dict={self.x_data: X, self.training:False})
+		return val
 
 	def train(self, X, y, n):
 		summary, _  = self.sess.run([self.merged, self.optimize], feed_dict={self.x_data: X, self.y_target: y, self.training:True})
@@ -192,9 +186,40 @@ class Network:
 		self.test_writer.add_summary(summary, n)
 		return acc
 
+	def auc(self, X, y):
+		pred = self.predict(X)
+		fpr, tpr, thresholds = roc_curve(y, pred)
+		a = auc(fpr, tpr)
+
+		# plt.figure()
+		# lw = 2
+		# plt.plot(fpr, tpr, color='darkorange',
+		#          lw=lw, label='ROC curve (area = %0.2f)' % a)
+		# plt.plot([0, 1], [0, 1], color='navy', lw=lw, linestyle='--')
+		# plt.xlim([0.0, 1.0])
+		# plt.ylim([0.0, 1.05])
+		# plt.xlabel('False Positive Rate')
+		# plt.ylabel('True Positive Rate')
+		# plt.title('Receiver operating characteristic example')
+		# plt.legend(loc="lower right")
+
+		# ax2 = plt.gca().twinx()
+		# ax2.plot(fpr, thresholds, markeredgecolor='r',linestyle='dashed', color='r')
+		# ax2.set_ylabel('Threshold',color='r')
+		# ax2.set_ylim([thresholds[-1],thresholds[0]])
+		# ax2.set_xlim([fpr[0],fpr[-1]])
+
+		return a
+
+	def accuracy_binary(self, X, y):
+		pred = self.predict(X)
+		logits = np.array(pred >= 0.5, np.int32)
+		return accuracy_score(y, logits)
+
 	def init(self):
 		with self.graph.as_default():
 			init = tf.global_variables_initializer()
+			self.sess.run(tf.local_variables_initializer())
 		self.sess.run(init)
 
 	def fit_epoch(self, X, y, e, e_size):
@@ -217,21 +242,27 @@ class Network:
 		best_epoch = 0
 		best_test = 0
 		epoch_size = len(X)//batch_size
-		print epoch_size
 		for e in range(epochs):
-			print e
 			self.fit_epoch(X, y, e, epoch_size)
 			if e != 0 and (e+1) % eval_epoch == 0:
 				n = (e+1)*epoch_size
-				acc = self.valid(X_valid, y_valid, n)
-				print X_valid.shape
-				# print('Epoch: ' + str(e+1) + ' accuracy = ' + str(acc))
+				if self.classes == 1 :
+					# acc = self.auc(X_valid, y_valid)
+					acc = self.accuracy_binary(X_valid, y_valid)
+				else:
+					acc = self.valid(X_valid, y_valid, n)
+
+				print('Epoch: ' + str(e+1) + ' accuracy = ' + str(acc))
 				if acc > best_acc:
 					best_acc = acc
 					best_epoch = e + 1
-					acc_test = self.test(X_test, y_test, n)
+					if self.classes == 1 :
+						# acc_test = self.auc(X_test, y_test)
+						acc_test = self.accuracy_binary(X_test, y_test)
+						print acc_test
+					else:
+						acc_test = self.test(X_test, y_test, n)
 					best_test = acc_test
-					# print 'BEST , test = ' + str(acc_test)
 
 		return best_acc, best_test, best_epoch
 
@@ -334,6 +365,7 @@ class DNN(Network):
 			self.loss
 			self.optimize
 			self.accuracy
+
 			self.init_log
 
 		self.sess = tf.Session(graph=self.graph)
@@ -431,7 +463,7 @@ class CNN(Network):
 			z = self.conv_layer(z, archi.filters, archi.size, archi.activation)
 
 		z = tf.layers.flatten(z)
-		print z
+
 		for i, ffc in enumerate(self.ffcs):
 			if i > 0: z = tf.layers.dropout(inputs=z, rate=self.dropout, training=self.training)
 			z = tf.layers.dense(z, ffc.hidden, activation=ffc.activation)

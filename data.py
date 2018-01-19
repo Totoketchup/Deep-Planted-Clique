@@ -116,6 +116,7 @@ def get_data_by_name(path, name, one_hot=True):
 		y = np.array(pd.get_dummies(s), 'float32')
 	else:
 		y = np.expand_dims(np.array(labels),1)
+		print y
 	return features, y
 
 def get_data(data, data_path, topological, feature_truc=0, one_hot=True):
@@ -131,7 +132,7 @@ def get_data(data, data_path, topological, feature_truc=0, one_hot=True):
 
 def train_test_valid_shuffle(x_vals, y_vals, train_ratio=0.8,test_valid_ratio=0.5, seed=42):
 	s = np.arange(len(x_vals))
-	np.random.seed(seed)
+	np.random.seed(seed*42)
 	np.random.shuffle(s)
 
 	x_vals = x_vals[s]
