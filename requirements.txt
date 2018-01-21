@@ -1,0 +1,14 @@
+pandas==0.20.3
+scipy==1.0.0
+tqdm==4.19.4
+networkx==2.0
+matplotlib==2.1.0
+nltk==3.2.5
+numpy==1.12.0
+tensorflow_gpu==1.4.0
+joblib==0.11
+haikunator==2.1.0
+h5py==2.7.0
+psutil==5.4.3
+scikit_learn==0.19.1
+tensorflow==1.5.0rc1

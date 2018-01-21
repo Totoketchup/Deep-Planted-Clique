@@ -7,5 +7,5 @@
 
 . /fefs/opt/dgx/env_set/common_env_set.sh
 
-python setup.py
+pip install -r requirements.txt
 python rnn_planted.py --data clique-N1000-K25-E10-M1-exFalse-L:False-F:False
