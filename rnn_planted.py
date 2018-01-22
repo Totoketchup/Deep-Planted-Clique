@@ -30,15 +30,37 @@ if __name__ == '__main__':
 		'--search_grid', help='Do Search Grid', action="store_true")
 	parser.add_argument(
 		'--trials', type=int, help='number of trials', required=False, default=1)
+	parser.add_argument(
+		'--binary', help='Unique output', action="store_true")
+	parser.add_argument(
+		'--train_ratio', type=float, help='ratio of train set', required=False, default=0.8)
+	parser.add_argument(
+		'--test_ratio', type=float, help='ratio of test set', required=False, default=0.1)
+	parser.add_argument(
+		'--valid_ratio', type=float, help='ratio of valid set', required=False, default=0.1)	
+	parser.add_argument(
+		'--nb_samples', type=int, help='Truncate the number of samples used', required=False, default=0)	
+	parser.add_argument(
+		'--import_test_data', help='Import custom test data', required=False, default='')	
 
 	args = parser.parse_args()
 
+	if args.binary:
+		classes = 1
+	else:
+		classes = 2
+
 	if not args.text:
-		x_vals, y_vals = get_data(args.data, args.data_path, args.topological)
+		x_vals, y_vals = get_data(args.data, args.data_path, args.topological, one_hot = not args.binary)
 	else:
 		x_vals, y_vals = get_txt_data(args.data, args.data_path)
 
+	if args.nb_samples == 0:
+		args.nb_samples = len(x_vals)
+
+
 	x_vals = np.squeeze(x_vals)
+	x_vals = x_vals[:, :,:]
 	input_dim = x_vals.shape[-1]
 
 	trials = args.trials
@@ -62,7 +84,7 @@ if __name__ == '__main__':
 			'batch_size' : [2048],
 			'optimizer' : [tf.train.AdamOptimizer],
 			'epochs' : [200],
-			'classes' : [2],
+			'classes' : [classes],
 			'input_dim' : [input_dim]
 		}
 
@@ -73,16 +95,20 @@ if __name__ == '__main__':
 
 	else:
 		params = {
-			'hidden' : 30,
-			'layers' : 3,
-			'dropout' : 0.5,
+			'hidden' : 50,
+			'layers' : 4,
+			'dropout' : 1.0,
 			'learning_rate' : 0.001,
 			'batch_size' : 2048,
 			'optimizer' : tf.train.AdamOptimizer,
-			'epochs' : 400,
-			'classes' : 2,
+			'epochs' : 100,
+			'classes' : classes,
 			'input_dim' : input_dim,
-			'data' : args.data
+			'data' : args.data,
+			'blstm' : False,
+			'train_ratio': args.train_ratio,
+			'import_test_data' : args.import_test_data,
+			'nb_samples': args.nb_samples,
 		}
 
 		trials = args.trials

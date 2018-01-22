@@ -26,14 +26,35 @@ if __name__ == '__main__':
 		'--search_grid', help='Do Search Grid', action="store_true")
 	parser.add_argument(
 		'--trials', type=int, help='number of trials', required=False, default=1)
+	parser.add_argument(
+		'--binary', help='Unique output', action="store_true")
+	parser.add_argument(
+		'--train_ratio', type=float, help='ratio of train set', required=False, default=0.8)
+	parser.add_argument(
+		'--test_ratio', type=float, help='ratio of test set', required=False, default=0.1)
+	parser.add_argument(
+		'--valid_ratio', type=float, help='ratio of valid set', required=False, default=0.1)	
+	parser.add_argument(
+		'--nb_samples', type=int, help='Truncate the number of samples used', required=False, default=0)	
+	parser.add_argument(
+		'--import_test_data', help='Import custom test data', required=False, default='')	
 
 	args = parser.parse_args()
 
+	if args.binary:
+		classes = 1
+	else:
+		classes = 2
+
 	if not args.text:
-		x_vals, y_vals = get_data(args.data, args.data_path, args.topological)
+		x_vals, y_vals = get_data(args.data, args.data_path, args.topological, one_hot = not args.binary)
 	else:
 		x_vals, y_vals = get_txt_data(args.data, args.data_path)
 
+	if args.nb_samples == 0:
+		args.nb_samples = len(x_vals)
+
+	x_vals = x_vals[:, :39,:40]
 	x_vals = np.squeeze(x_vals)
 	_, height, width = x_vals.shape
 	x_vals = np.expand_dims(x_vals, 3)
@@ -60,7 +81,7 @@ if __name__ == '__main__':
 			'batch_size' : [2048],
 			'optimizer' : [tf.train.AdamOptimizer],
 			'epochs' : [200],
-			'classes' : [2],
+			'classes' : [classes],
 			'input_dim' : [input_dim]
 		}
 
@@ -72,15 +93,15 @@ if __name__ == '__main__':
 	else:
 
 		layers = [	
-			CNN_description(8, [5,5], tf.nn.relu),
-			CNN_description(16, [3,3], tf.nn.relu),
-			CNN_description(32, [2,2], tf.nn.relu),
+			CNN_description(16, [5, 5], tf.nn.sigmoid),
+			CNN_description(16, [3,3], tf.nn.sigmoid),
+			CNN_description(16, [2, 2], tf.nn.sigmoid),
 		]
 
 		ffcs = [
-			FF_description(16, tf.nn.relu),
-			FF_description(8, tf.nn.relu),
-			FF_description(2, None)
+			FF_description(100, tf.nn.sigmoid),
+			FF_description(50, tf.nn.sigmoid),
+			FF_description(classes, None)
 		]
 
 		params = {
@@ -88,14 +109,17 @@ if __name__ == '__main__':
 			'ffcs' : ffcs,
 			'shape' : (height, width),
 			'batch_norm' : True,
-			'dropout' : 0.5,
+			'dropout' : 0.8,
 			'learning_rate' : 0.001,
 			'batch_size' : 512,
 			'optimizer' : tf.train.AdamOptimizer,
-			'epochs' : 100,
-			'classes' : 2,
+			'epochs' : 400,
+			'classes' : classes,
 			'input_dim' : input_dim,
-			'data' : args.data
+			'data' : args.data,
+			'train_ratio': args.train_ratio,
+			'import_test_data' : args.import_test_data,
+			'nb_samples': args.nb_samples,
 		}
 
 		trials = args.trials

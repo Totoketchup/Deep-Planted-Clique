@@ -28,7 +28,8 @@ class Trainer:
 		valid_acc = []
 
 		for trial in range(self.trials):
-			vals = train_test_valid_shuffle(X_, y_, seed=trial)
+			vals = train_test_valid_shuffle(X_, y_, train_ratio=self.args['train_ratio'], 
+						import_test_data=self.args['import_test_data'], nb_samples= self.args['nb_samples'], seed=trial)
 			X, y = vals[0]
 			X_test, y_test = vals[1]
 			X_valid, y_valid = vals[2]
@@ -182,11 +183,13 @@ class Network:
 		return acc
 
 	def test(self, X, y, n):
-		summary, acc =  self.sess.run([self.merged, self.accuracy], feed_dict={self.x_data: X, self.y_target: y, self.training:False})
+		summary, acc = self.sess.run([self.merged, self.accuracy], feed_dict={self.x_data: X, self.y_target: y, self.training:False})
 		self.test_writer.add_summary(summary, n)
 		return acc
 
 	def auc(self, X, y):
+		if len(X.shape) != tf.rank(self.x_data).eval(session=self.sess):
+			X = np.expand_dims(X, 2)
 		pred = self.predict(X)
 		fpr, tpr, thresholds = roc_curve(y, pred)
 		a = auc(fpr, tpr)
@@ -247,8 +250,7 @@ class Network:
 			if e != 0 and (e+1) % eval_epoch == 0:
 				n = (e+1)*epoch_size
 				if self.classes == 1 :
-					# acc = self.auc(X_valid, y_valid)
-					acc = self.accuracy_binary(X_valid, y_valid)
+					acc = self.auc(X_valid, y_valid)
 				else:
 					acc = self.valid(X_valid, y_valid, n)
 
@@ -258,7 +260,7 @@ class Network:
 					best_epoch = e + 1
 					if self.classes == 1 :
 						# acc_test = self.auc(X_test, y_test)
-						acc_test = self.accuracy_binary(X_test, y_test)
+						acc_test = self.auc(X_test, y_test)
 						print acc_test
 					else:
 						acc_test = self.test(X_test, y_test, n)
@@ -282,6 +284,7 @@ class RNN(Network):
 		self.opt = args['optimizer']
 		self.dim = args['input_dim']
 		self.classes = args['classes']
+		self.blstm = args['blstm']
 
 		self.name = 'RNN_' + self.name
 
@@ -301,25 +304,25 @@ class RNN(Network):
 
 	@scope
 	def network(self):
-			cells = []
-			for _ in range(self.layers):
-				cell = tf.contrib.rnn.BasicLSTMCell(self.hidden) # Or LSTMCell(num_units)
-				cell = tf.contrib.rnn.DropoutWrapper(cell, output_keep_prob=self.dropout)
-				cells.append(cell)
-			network = tf.contrib.rnn.MultiRNNCell(cells)
-			z, _ = tf.nn.dynamic_rnn(network, self.x_data, dtype=tf.float32)
-
-			# z = self.x_data
-			# for i in range(self.layers):
-			#     z = blstm(z, self.hidden, i, self.dropout)
-			# Select last output.
+			if not self.blstm:
+				cells = []
+				for _ in range(self.layers):
+					cell = tf.contrib.rnn.BasicLSTMCell(self.hidden) # Or LSTMCell(num_units)
+					cell = tf.contrib.rnn.DropoutWrapper(cell, output_keep_prob=self.dropout)
+					cells.append(cell)
+				network = tf.contrib.rnn.MultiRNNCell(cells)
+				z, _ = tf.nn.dynamic_rnn(network, self.x_data, dtype=tf.float32)
+			else:
+				z = self.x_data
+				for i in range(self.layers):
+				    z = self.blstm_net(z, self.hidden, i, self.dropout)
 
 			last = z[:, -1, :]
 			prediction = tf.layers.dense(last, self.classes)
 
 			return prediction
 
-	def blstm(self, input_tensor, hid, i, kp):
+	def blstm_net(self, input_tensor, hid, i, kp):
 		forward_input = input_tensor
 		backward_input = tf.reverse(input_tensor, [1])
 
@@ -463,6 +466,8 @@ class CNN(Network):
 			z = self.conv_layer(z, archi.filters, archi.size, archi.activation)
 
 		z = tf.layers.flatten(z)
+		# z = tf.reduce_mean(z, [1,2])
+		print 'FLatten ', z
 
 		for i, ffc in enumerate(self.ffcs):
 			if i > 0: z = tf.layers.dropout(inputs=z, rate=self.dropout, training=self.training)

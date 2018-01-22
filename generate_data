@@ -14,7 +14,7 @@
 # python create_data_topk.py -v 1000 -n 10000 -k 25 -m 2
 # python create_data_topk.py -v 1000 -n 10000 -k 25 -m 1 -e 10 -ex 0
 # python create_data_topk.py -v 1000 -n 10000 -k 25 -m 1 -e 10 -ex 1
-# python create_data_topk.py -v 1000 -n 10000 -k 25 -m 2 -e 10 -ex  #TODO
+# python create_data_topk.py -v 1000 -n 10000 -k 25 -m 2 -e 10 -ex 1 #TODO
 # python create_data_topk.py -v 1000 -n 10000 -k 25 -m 2 -e 10 -ex 0
 # python create_data_topk.py -v 100 -n 10000 -k 10 -m 2 -e 20 -ex 1
 # python create_data_topk.py -v 100 -n 10000 -k 10 -m 3 -e 25 -ex 1
@@ -48,3 +48,5 @@
 # python create_data_topk.py -v 1000 -n 10000 -k 26 -m 2 -e 52 -ex 1
 # python create_data_topk.py -v 1000 -n 10000 -k 27 -m 2 -e 54 -ex 1
 # python create_data_topk.py -v 1000 -n 100000 -k 30 -m 1 -e 30 -ex 1
+
+# python create_data_topk.py -v 1000 -n 10000 -k 21 -m 1 -e 21 -ex 1
