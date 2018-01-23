@@ -17,5 +17,5 @@ export ftp_proxy=$MY_PROXY_URL
 
 . /fefs/opt/dgx/env_set/common_env_set.sh
 
-pip install -r requirements.txt
+pip install --user -r requirements.txt
 python rnn_planted.py --data clique-N1000-K25-E10-M1-exFalse-L:False-F:False
