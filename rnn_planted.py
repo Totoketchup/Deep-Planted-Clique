@@ -60,7 +60,7 @@ if __name__ == '__main__':
 
 
 	x_vals = np.squeeze(x_vals)
-	x_vals = x_vals[:, :,:]
+	x_vals = x_vals[:, :25,:1]
 	input_dim = x_vals.shape[-1]
 
 	trials = args.trials
