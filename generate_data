@@ -50,3 +50,7 @@
 # python create_data_topk.py -v 1000 -n 100000 -k 30 -m 1 -e 30 -ex 1
 
 # python create_data_topk.py -v 1000 -n 10000 -k 21 -m 1 -e 21 -ex 1
+
+
+python create_data_topk.py -v 1000 -n 15000 -k 25 -m 1 -e 25 -ex 1
+python create_data_topk.py -v 1000 -n 15000 -k 25 -m 2 -e 50 -ex 1

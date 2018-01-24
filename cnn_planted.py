@@ -54,7 +54,7 @@ if __name__ == '__main__':
 	if args.nb_samples == 0:
 		args.nb_samples = len(x_vals)
 
-	x_vals = x_vals[:, :39,:40]
+	x_vals = x_vals[:, :,:]
 	x_vals = np.squeeze(x_vals)
 	_, height, width = x_vals.shape
 	x_vals = np.expand_dims(x_vals, 3)
@@ -113,7 +113,7 @@ if __name__ == '__main__':
 			'learning_rate' : 0.001,
 			'batch_size' : 512,
 			'optimizer' : tf.train.AdamOptimizer,
-			'epochs' : 400,
+			'epochs' : 20,
 			'classes' : classes,
 			'input_dim' : input_dim,
 			'data' : args.data,

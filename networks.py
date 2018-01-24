@@ -26,6 +26,7 @@ class Trainer:
 
 		test_acc = []
 		valid_acc = []
+		accuracy = [] # Used only for binary classifier
 
 		for trial in range(self.trials):
 			vals = train_test_valid_shuffle(X_, y_, train_ratio=self.args['train_ratio'], 
@@ -36,12 +37,13 @@ class Trainer:
 
 			network = self.net(self.args)
 			network.init()
-			v , t, _ = network.train_epochs(batch_size, epochs, X, y, X_valid, y_valid, X_test, y_test)
+			v ,t ,e ,a = network.train_epochs(batch_size, epochs, X, y, X_valid, y_valid, X_test, y_test)
 
 			test_acc.append(t)
 			valid_acc.append(v)
+			accuracy.append(a)
 
-		return test_acc, valid_acc
+		return test_acc, valid_acc, accuracy
 
 class Optimizer:
 
@@ -64,7 +66,7 @@ class Optimizer:
 
 			network = self.net(current_args, subdir='Grid_Search')
 			network.init()
-			acc_valid , acc_test, epoch = network.train_epochs(batch_size, epochs, X, y, X_valid, y_valid, X_test, y_test)
+			acc_valid , acc_test, epoch, _ = network.train_epochs(batch_size, epochs, X, y, X_valid, y_valid, X_test, y_test)
 
 			if acc_valid > best_validation_accuracy:
 				best_hyperparams = current_args
@@ -170,7 +172,13 @@ class Network:
 		return acc
 
 	def predict(self, X):
-		val = self.sess.run(tf.nn.sigmoid(self.network), feed_dict={self.x_data: X, self.training:False})
+		size = 1000
+		val = np.zeros((len(X),1))
+		l = int(len(X)//size)
+		for i in range(l):
+			X_ = X[i*size:(i+1)*size]
+			v = self.sess.run(tf.nn.sigmoid(self.network), feed_dict={self.x_data: X_, self.training:False})
+			val[i*size:(i+1)*size] = v
 		return val
 
 	def train(self, X, y, n):
@@ -178,16 +186,32 @@ class Network:
 		self.train_writer.add_summary(summary, n)
 
 	def valid(self, X, y, n):
-		summary, acc =  self.sess.run([self.merged, self.accuracy], feed_dict={self.x_data: X, self.y_target: y, self.training:False})
+		size = 1000
+		acc = 0.0
+		l = int(len(X)//size)
+		for i in range(l):
+			X_ = X[i*size:(i+1)*size]
+			y_ = y[i*size:(i+1)*size]
+			summary, acc_ = self.sess.run([self.merged, self.accuracy], feed_dict={self.x_data: X_, self.y_target: y_, self.training:False})
+			acc += acc_
+		acc = acc/float(l)
 		self.valid_writer.add_summary(summary, n)
 		return acc
 
 	def test(self, X, y, n):
-		summary, acc = self.sess.run([self.merged, self.accuracy], feed_dict={self.x_data: X, self.y_target: y, self.training:False})
-		self.test_writer.add_summary(summary, n)
+		size = 1000
+		acc = 0.0
+		l = int(len(X)//size)
+		for i in range(l):
+			X_ = X[i*size:(i+1)*size]
+			y_ = y[i*size:(i+1)*size]
+			summary, acc_ = self.sess.run([self.merged, self.accuracy], feed_dict={self.x_data: X_, self.y_target: y_, self.training:False})
+			acc += acc_
+		acc = acc/float(l)
+		# self.test_writer.add_summary(summary, n)
 		return acc
 
-	def auc(self, X, y):
+	def auc_(self, X, y):
 		if len(X.shape) != tf.rank(self.x_data).eval(session=self.sess):
 			X = np.expand_dims(X, 2)
 		pred = self.predict(X)
@@ -244,13 +268,15 @@ class Network:
 		best_acc = 0
 		best_epoch = 0
 		best_test = 0
+		accuracy = 0 # Used only with binary_classifier
 		epoch_size = len(X)//batch_size
 		for e in range(epochs):
 			self.fit_epoch(X, y, e, epoch_size)
 			if e != 0 and (e+1) % eval_epoch == 0:
 				n = (e+1)*epoch_size
+
 				if self.classes == 1 :
-					acc = self.auc(X_valid, y_valid)
+					acc = self.auc_(X_valid, y_valid)
 				else:
 					acc = self.valid(X_valid, y_valid, n)
 
@@ -259,14 +285,15 @@ class Network:
 					best_acc = acc
 					best_epoch = e + 1
 					if self.classes == 1 :
-						# acc_test = self.auc(X_test, y_test)
-						acc_test = self.auc(X_test, y_test)
-						print acc_test
+						accuracy = self.accuracy_binary(X_test, y_test)
+						acc_test = self.auc_(X_test, y_test)
+						print acc_test, accuracy
 					else:
 						acc_test = self.test(X_test, y_test, n)
+
 					best_test = acc_test
 
-		return best_acc, best_test, best_epoch
+		return best_acc, best_test, best_epoch, accuracy
 
 
 
