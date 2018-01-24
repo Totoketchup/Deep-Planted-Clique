@@ -13,24 +13,6 @@ export http_proxy=$MY_PROXY_URL
 export https_proxy=$MY_PROXY_URL
 export ftp_proxy=$MY_PROXY_URL
 
-wget https://prdownloads.sourceforge.net/tcl/tcl8.6.8-src.tar.gz
-wget https://prdownloads.sourceforge.net/tcl/tk8.6.8-src.tar.gz
-tar xvf tcl8.6.8-src.tar.gz
-tar xvf tk8.6.8-src.tar.gz
-
-cd tcl8.6.8/unix
-./configure --prefix=/home/cnel711 --exec-prefix=/home/cnel711
-make
-make install
-
-cd ..
-cd ..
-
-cd tk8.6.8/unix
-./configure --prefix=/home/cnel711 --exec-prefix=/home/cnel711 --with-tcl=/home/cnel711/tcl8.5.11/unix
-make
-make install
-
 . /fefs/opt/dgx/env_set/common_env_set.sh
 
 apt-get source python-tk
