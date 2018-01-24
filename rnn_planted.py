@@ -114,10 +114,9 @@ if __name__ == '__main__':
 		trials = args.trials
 
 
-		test_acc, valid_acc = Trainer(params, RNN, trials).train(x_vals, y_vals)
+		test_acc, valid_acc, accuracy = Trainer(params, RNN, trials).train(x_vals, y_vals)
 
 		print 'On '+str(trials)+' Trials:'
 		print 'Test mean = '+str(np.mean(test_acc))+'  std= '+str(np.std(test_acc))
 		print 'Valid mean = '+str(np.mean(valid_acc))+'  std= '+str(np.std(valid_acc))
-
-
+		print 'Accuracy mean = '+str(np.mean(accuracy))+'  std= '+str(np.std(accuracy))

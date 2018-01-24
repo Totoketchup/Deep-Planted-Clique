@@ -149,5 +149,4 @@ if __name__ == '__main__':
 		print 'On '+str(trials)+' Trials:'
 		print 'Test mean = '+str(np.mean(test_acc))+'  std= '+str(np.std(test_acc))
 		print 'Valid mean = '+str(np.mean(valid_acc))+'  std= '+str(np.std(valid_acc))
-		print 'accuracy = '+str(np.mean(accuracy))+'  std= '+str(np.std(accuracy))
-
+		print 'Accuracy mean = '+str(np.mean(accuracy))+'  std= '+str(np.std(accuracy))
