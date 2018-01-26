@@ -38,6 +38,8 @@ if __name__ == '__main__':
 		'--nb_samples', type=int, help='Truncate the number of samples used', required=False, default=0)	
 	parser.add_argument(
 		'--import_test_data', help='Import custom test data', required=False, default='')	
+	parser.add_argument(
+		'--save', help='Unique output', action="store_true")
 
 	args = parser.parse_args()
 
@@ -138,7 +140,8 @@ if __name__ == '__main__':
 			'activation' : tf.nn.sigmoid,
 			'train_ratio': args.train_ratio,
 			'import_test_data' : args.import_test_data,
-			'nb_samples': args.nb_samples
+			'nb_samples': args.nb_samples,
+			'save': args.save
 		}
 
 		trials = args.trials

@@ -134,6 +134,7 @@ class Network:
 		self.train_writer = tf.summary.FileWriter(os.path.join('log', self.subdir, self.data, self.name, self.run, 'train'), tf.get_default_graph())
 		self.valid_writer = tf.summary.FileWriter(os.path.join('log', self.subdir, self.data, self.name, self.run, 'valid'), tf.get_default_graph())
 		self.test_writer = tf.summary.FileWriter(os.path.join('log', self.subdir, self.data, self.name, self.run, 'test'), tf.get_default_graph())
+		self.saver = tf.train.Saver()
 
 	def save_model(self, step):
 		self.saver.save(self.sess, os.path.join('models', self.name, self.run), global_step=step)
@@ -215,6 +216,7 @@ class Network:
 		if len(X.shape) != tf.rank(self.x_data).eval(session=self.sess):
 			X = np.expand_dims(X, 2)
 		pred = self.predict(X)
+		print pred
 		fpr, tpr, thresholds = roc_curve(y, pred)
 		a = auc(fpr, tpr)
 
@@ -290,7 +292,7 @@ class Network:
 						print acc_test, accuracy
 					else:
 						acc_test = self.test(X_test, y_test, n)
-
+					self.save_model(n)
 					best_test = acc_test
 
 		return best_acc, best_test, best_epoch, accuracy
