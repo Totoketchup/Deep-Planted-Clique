@@ -113,7 +113,7 @@ if __name__ == '__main__':
 			'learning_rate' : 0.001,
 			'batch_size' : 512,
 			'optimizer' : tf.train.AdamOptimizer,
-			'epochs' : 20,
+			'epochs' : 50,
 			'classes' : classes,
 			'input_dim' : input_dim,
 			'data' : args.data,

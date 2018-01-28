@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 import tensorflow as tf
 import numpy as np
 from tensorflow.python.framework import ops
@@ -37,6 +39,7 @@ class Trainer:
 
 			network = self.net(self.args)
 			network.init()
+
 			v ,t ,e ,a = network.train_epochs(batch_size, epochs, X, y, X_valid, y_valid, X_test, y_test)
 
 			test_acc.append(t)
@@ -216,7 +219,6 @@ class Network:
 		if len(X.shape) != tf.rank(self.x_data).eval(session=self.sess):
 			X = np.expand_dims(X, 2)
 		pred = self.predict(X)
-		print pred
 		fpr, tpr, thresholds = roc_curve(y, pred)
 		a = auc(fpr, tpr)
 
@@ -514,3 +516,58 @@ class CNN(Network):
 		targets = tf.argmax(self.y_target, axis=1)
 
 		self.accuracy = tf.reduce_mean(tf.cast(tf.equal(logits, targets), tf.float32))
+
+
+class Planted(Network):
+
+
+	"""docstring for Planted"""
+	def __init__(self, args):
+		Network.__init__(self, args)
+		self.graph = tf.Graph()
+
+		self.k = args['k']
+		self.input_dim = args['input_dim']
+		self.batch_size = args['batch_size']
+		self.learning_rate = args['learning_rate']
+		self.opt = args['optimizer']
+		self.classes = args['classes']
+
+		self.name = 'Planted_' + self.name
+
+
+		with self.graph.as_default():
+			self.x_data = tf.placeholder(shape=[None, self.input_dim, self.input_dim], dtype=tf.float32)
+			self.y_target = tf.placeholder(shape=[None, self.classes], dtype=tf.float32)
+			self.training = tf.placeholder(tf.bool)
+
+			self.network
+			# self.loss
+			# self.optimize
+			# self.accuracy
+			# self.init_log
+
+		self.sess = tf.Session(graph=self.graph)
+
+	@scope
+	def network(self):
+		z = self.x_data
+
+		# Compute the normalized Degree vector
+		D = tf.matmul(tf.reshape(z,[-1, self.input_dim]), tf.ones([self.input_dim, 1])) # Degrees Vector
+		D = tf.reshape(D, [-1, self.input_dim]) 
+		mean, variance = tf.nn.moments(D, 1,keep_dims=True)
+		self.D = (D - mean) / variance
+
+		# First layer 
+		top_k1_val, self.top_k1_ind  = tf.nn.top_k(self.D, self.k)
+
+		z = tf.gather(z, self.top_k1_ind)
+		print z
+
+
+		return z
+		
+	def train(self, X, y, n):
+		a  = self.sess.run(self.top_k1_ind, feed_dict={self.x_data: X, self.y_target: y, self.training:True})
+		print a
