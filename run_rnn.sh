@@ -17,4 +17,4 @@ export PATH="/home/anthony/anaconda2/bin:$PATH"
 . /fefs/opt/dgx/env_set/common_env_set.sh
 
 pip install --user -r requirements.txt
-python rnn_planted.py --data clique-N1000-K25-E10-M1-exFalse-L:False-F:False
+ python cnn_planted.py --data clique-N1000-K25-E50-M2-exTrue-L:False-F:False --trials 10 --binary --nb_samples 30000
