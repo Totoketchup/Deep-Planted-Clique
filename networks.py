@@ -101,6 +101,8 @@ class Network:
 
 		self.batch_size = args['batch_size']
 		self.classes = args['classes']
+		self.opt = args['optimizer']
+		self.learning_rate = args['learning_rate']
 		self.run = haikunator.Haikunator().haikunate(token_length=0)
 		self.name = ''
 		self.data = args['data']
@@ -294,7 +296,7 @@ class Network:
 						print acc_test, accuracy
 					else:
 						acc_test = self.test(X_test, y_test, n)
-					self.save_model(n)
+					# self.save_model(n)
 					best_test = acc_test
 
 		return best_acc, best_test, best_epoch, accuracy
@@ -436,35 +438,40 @@ class FF_description:
 class CNN(Network):
 
 	def __init__(self, args):
+		if not only_architecture:
+			Network.__init__(self, args)
+			self.graph = tf.Graph()
 
-		Network.__init__(self, args)
-		self.graph = tf.Graph()
+			self.height, self.width = args['shape']
+			self.ffcs = args['ffcs']
+			self.batch_norm = args['batch_norm']
+			self.layers = args['layers']
+			self.dropout = args['dropout']
+			self.classes = args['classes']
 
-		self.height, self.width = args['shape']
-		self.ffcs = args['ffcs']
-		self.batch_norm = args['batch_norm']
-		self.layers = args['layers']
-		self.dropout = args['dropout']
-		self.batch_size = args['batch_size']
-		self.learning_rate = args['learning_rate']
-		self.opt = args['optimizer']
-		self.classes = args['classes']
+			self.name = 'CNN_' + self.name
+			self.args = args
 
-		self.name = 'CNN_' + self.name
+			with self.graph.as_default():
+				self.x_data = tf.placeholder(shape=[None, self.height, self.width, 1], dtype=tf.float32)
+				self.y_target = tf.placeholder(shape=[None, self.classes], dtype=tf.float32)
+				self.training = tf.placeholder(tf.bool)
 
+				self.network
+				self.loss
+				self.optimize
+				self.accuracy
+				self.init_log
 
-		with self.graph.as_default():
-			self.x_data = tf.placeholder(shape=[None, self.height, self.width, 1], dtype=tf.float32)
-			self.y_target = tf.placeholder(shape=[None, self.classes], dtype=tf.float32)
-			self.training = tf.placeholder(tf.bool)
+			self.sess = tf.Session(graph=self.graph)
+		else:
+			self.height, self.width = args['shape']
+			self.ffcs = args['ffcs']
+			self.batch_norm = args['batch_norm']
+			self.layers = args['layers']
+			self.dropout = args['dropout']
+			self.classes = args['classes']
 
-			self.network
-			self.loss
-			self.optimize
-			self.accuracy
-			self.init_log
-
-		self.sess = tf.Session(graph=self.graph)
 
 	def conv_layer(self, input_tensor, filters, size, activation):
 
@@ -506,7 +513,6 @@ class CNN(Network):
 
 		return z
 
-
 		my_opt = self.opt(self.learning_rate)
 		update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
 		with tf.control_dependencies(update_ops):
@@ -532,6 +538,8 @@ class Planted(Network):
 		self.learning_rate = args['learning_rate']
 		self.opt = args['optimizer']
 		self.classes = args['classes']
+		self.excluding = args['excluding']
+		self.batch_norm = True
 
 		self.name = 'Planted_' + self.name
 
@@ -542,32 +550,119 @@ class Planted(Network):
 			self.training = tf.placeholder(tf.bool)
 
 			self.network
-			# self.loss
-			# self.optimize
-			# self.accuracy
-			# self.init_log
+			self.loss
+			self.optimize
+			self.accuracy
+			self.init_log
 
 		self.sess = tf.Session(graph=self.graph)
+
+	def conv_layer(self, input_tensor, filters, size, activation):
+
+		z = tf.layers.conv2d(
+				inputs=input_tensor,
+				filters=filters,
+				kernel_size=size,
+				padding="same",
+				activation= None if self.batch_norm else activation)
+
+		if self.batch_norm:
+			z = tf.contrib.layers.batch_norm(
+					z, 
+					center=True, 
+					scale=True, 
+					is_training=self.training)
+			z = activation(z)
+
+		return z
+
+	def maxpool(self, input_tensor, size):
+		return tf.layers.max_pooling2d(inputs=input_tensor, pool_size=[size, size], strides=size)
+
 
 	@scope
 	def network(self):
 		z = self.x_data
 
-		# Compute the normalized Degree vector
-		D = tf.matmul(tf.reshape(z,[-1, self.input_dim]), tf.ones([self.input_dim, 1])) # Degrees Vector
-		D = tf.reshape(D, [-1, self.input_dim]) 
-		mean, variance = tf.nn.moments(D, 1,keep_dims=True)
-		self.D = (D - mean) / variance
+		B = tf.shape(self.x_data)[0]
 
-		# First layer 
-		top_k1_val, self.top_k1_ind  = tf.nn.top_k(self.D, self.k)
+		# Compute the normalized degree sequence
+		with tf.name_scope("degree_seq"):
+			D = tf.matmul(tf.reshape(z,[-1, self.input_dim]), tf.ones([self.input_dim, 1])) # Degrees Vector
+			self.D = tf.reshape(D, [-1, self.input_dim]) 
+			
+			mean, variance = tf.nn.moments(self.D, 1, keep_dims=True)
+			self.D = (self.D - mean) / variance
 
-		z = tf.gather(z, self.top_k1_ind)
-		print z
 
+		# Compute the top k sequence
+		with tf.name_scope("top_k1_layer"):
+			top_k1_val, top_k1_ind  = tf.nn.top_k(self.D, self.k)
+			self.top_k = top_k1_ind
+
+			z1 = tf.layers.dense(top_k1_val, self.k, activation=tf.nn.sigmoid) 
+
+		# Compute the top k sequence
+		with tf.name_scope("top_k2_layer"):
+			batch_range = tf.tile(tf.reshape(tf.range(B, dtype=tf.int32), shape=[B, 1, 1]), [1, self.k, 1])
+			indices = tf.concat([batch_range, tf.expand_dims(top_k1_ind,2)], axis = 2)
+			top_k_info = tf.gather_nd(z, indices)
+
+			one_top_k = tf.ones([B, self.input_dim], dtype=tf.float32)
+			if self.excluding:
+				one_top_k -= tf.scatter_nd(indices=indices,updates=tf.ones([B, self.k], dtype=tf.float32),shape=[B, self.input_dim])
+
+			neigh_excl_topk = top_k_info * tf.expand_dims(self.D, 1) * tf.expand_dims(one_top_k, 1)
+
+			top_k2_val, top_k2_ind  = tf.nn.top_k(neigh_excl_topk, self.k)
+
+			z2 = tf.layers.dense(top_k2_val, self.k, activation=tf.nn.sigmoid)
+		
+
+		output = tf.concat([tf.expand_dims(z1, 2), z2], 2)
+
+
+		self.layers = [	
+			CNN_description(2, [5, 5], tf.nn.sigmoid),
+			CNN_description(2, [3,3], tf.nn.sigmoid),
+			CNN_description(2, [2, 2], tf.nn.sigmoid),
+		]
+
+		self.ffcs = [
+			FF_description(20, tf.nn.sigmoid),
+			FF_description(10, tf.nn.sigmoid),
+			FF_description(self.classes, None)
+		]
+
+		self.dropout = 0.0
+
+		z = tf.expand_dims(output,3)
+		for i, archi in enumerate(self.layers):
+			if i > 0: z = self.maxpool(z , 2)
+			z = self.conv_layer(z, archi.filters, archi.size, archi.activation)
+
+		z = tf.layers.flatten(z)
+		# z = tf.reduce_mean(z, [1,2])
+		print 'FLatten ', z
+
+		for i, ffc in enumerate(self.ffcs):
+			if i > 0: z = tf.layers.dropout(inputs=z, rate=self.dropout, training=self.training)
+			z = tf.layers.dense(z, ffc.hidden, activation=ffc.activation)
 
 		return z
+
+		my_opt = self.opt(self.learning_rate)
+		update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
+		with tf.control_dependencies(update_ops):
+			self.train_step = my_opt.minimize(self.loss)
+
+		logits = tf.argmax(prediction, axis=1)
+		targets = tf.argmax(self.y_target, axis=1)
+
+		self.accuracy = tf.reduce_mean(tf.cast(tf.equal(logits, targets), tf.float32))
+
+
 		
-	def train(self, X, y, n):
-		a  = self.sess.run(self.top_k1_ind, feed_dict={self.x_data: X, self.y_target: y, self.training:True})
-		print a
+	# def train(self, X, y, n):
+	# 	a = self.sess.run(self.network, feed_dict={self.x_data: X, self.y_target: y, self.training:True})
+	# 	print a.shape

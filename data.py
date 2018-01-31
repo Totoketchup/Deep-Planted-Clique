@@ -133,6 +133,23 @@ def get_data(data, data_path, topological, feature_truc=0, one_hot=True):
 
 	return x_vals, y_vals
 
+def get_data_adjacency(data, data_path, one_hot=True):
+
+	file_path = os.path.join(data_path,data+'.h5',)
+	h5 = h5py.File(file_path)
+
+	features = h5['features']
+	labels = h5['labels']
+
+	if one_hot:
+		s = pd.Series(labels)
+		y = np.array(pd.get_dummies(s), 'float32')
+	else:
+		y = np.expand_dims(np.array(labels),1)
+	
+	return np.array(features), y
+
+
 
 def train_test_valid_shuffle(x_vals, y_vals, train_ratio=0.8, valid_ratio=0.1, 
 		test_ratio=0.1, nb_samples=0, import_test_data='', seed=42):

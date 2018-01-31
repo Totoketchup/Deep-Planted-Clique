@@ -27,6 +27,8 @@ if __name__ == '__main__':
 	parser.add_argument(
 		'--trials', type=int, help='number of trials', required=False, default=1)
 	parser.add_argument(
+		'--layers', type=int, help='number of trials', required=False, default=2)
+	parser.add_argument(
 		'--binary', help='Unique output', action="store_true")
 	parser.add_argument(
 		'--train_ratio', type=float, help='ratio of train set', required=False, default=0.8)
@@ -126,9 +128,11 @@ if __name__ == '__main__':
 		# Test mean = 0.643915  std= 0.00401404098136
 		# Valid mean = 0.64779  std= 0.00260324797129
 
+		h = 200
+		hidden = [h]*args.layers
 
 		params = {
-			'hidden' : [200, 200],
+			'hidden' : hidden,
 			'dropout' : 0.5,
 			'learning_rate' : 0.0001,
 			'batch_size' : 512,
